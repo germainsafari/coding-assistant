@@ -1,6 +1,6 @@
 // Persistence layer on Node's built-in SQLite (node:sqlite, includes FTS5).
 import { DatabaseSync } from 'node:sqlite';
-import type { ChatMessage, Project, RunRecord, SpanRecord, Thread, TodoItem } from '@hearth/shared';
+import type { ChatMessage, Project, RunOptions, RunRecord, SpanRecord, Thread, TodoItem } from '@hearth/shared';
 import { DB_PATH } from './config.ts';
 import { newId, now } from './util.ts';
 
@@ -53,9 +53,21 @@ CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
 END;
 `);
 
-/** Any run still "running" when the server starts was interrupted by a restart. */
-export function markInterruptedRuns() {
-  db.prepare(`UPDATE runs SET status='error', error='interrupted (server restart)', ended_at=? WHERE status='running'`).run(now());
+// additive migrations for databases created by older versions
+for (const sql of ['ALTER TABLE runs ADD COLUMN options TEXT']) {
+  try {
+    db.exec(sql);
+  } catch {}
+}
+
+/**
+ * Any run still "running" when the server starts was interrupted (crash / restart).
+ * Returns the interrupted top-level runs so long-run ones can be resumed.
+ */
+export function markInterruptedRuns(): RunRecord[] {
+  const rows = db.prepare(`SELECT * FROM runs WHERE status='running'`).all().map(rowToRun);
+  db.prepare(`UPDATE runs SET status='interrupted', error='interrupted (server stopped while running)', ended_at=? WHERE status='running'`).run(now());
+  return rows.filter((r) => !r.parentRunId);
 }
 
 const j = (v: unknown) => (v === undefined || v === null ? null : JSON.stringify(v));
@@ -205,6 +217,7 @@ const rowToRun = (r: any): RunRecord => ({
   userMessage: r.user_message,
   error: r.error,
   source: r.source,
+  options: pj(r.options),
 });
 const rowToSpan = (r: any): SpanRecord => ({
   id: r.id,
@@ -226,10 +239,14 @@ const rowToSpan = (r: any): SpanRecord => ({
 });
 
 export const runs = {
-  create(r: { id: string; threadId: string; projectId: string; parentRunId?: string | null; model: string; userMessage: string; source: string }) {
+  create(r: { id: string; threadId: string; projectId: string; parentRunId?: string | null; model: string; userMessage: string; source: string; options?: RunOptions | null }) {
     db.prepare(
-      'INSERT INTO runs (id,thread_id,project_id,parent_run_id,status,started_at,model,user_message,source) VALUES (?,?,?,?,?,?,?,?,?)',
-    ).run(r.id, r.threadId, r.projectId, r.parentRunId ?? null, 'running', now(), r.model, r.userMessage, r.source);
+      'INSERT INTO runs (id,thread_id,project_id,parent_run_id,status,started_at,model,user_message,source,options) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    ).run(r.id, r.threadId, r.projectId, r.parentRunId ?? null, 'running', now(), r.model, r.userMessage, r.source, j(r.options));
+  },
+  lastForThread(threadId: string): RunRecord | undefined {
+    const r = db.prepare('SELECT * FROM runs WHERE thread_id=? AND parent_run_id IS NULL ORDER BY started_at DESC LIMIT 1').get(threadId);
+    return r ? rowToRun(r) : undefined;
   },
   update(id: string, f: Partial<{ status: string; steps: number; promptTokens: number; completionTokens: number; error: string | null; endedAt: number }>) {
     const cols: string[] = [];

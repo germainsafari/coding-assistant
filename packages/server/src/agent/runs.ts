@@ -12,6 +12,8 @@ export class RunHandle {
   private listeners = new Set<(e: AgentEvent) => void>();
   readonly abort = new AbortController();
   status: RunStatus = 'running';
+  /** LoopResult once the run has finished */
+  result?: unknown;
   readonly pendingApprovals = new Map<string, { call: ToolCall; resolve: (d: ApprovalDecision) => void }>();
   readonly pendingQuestions = new Map<string, (answer: string) => void>();
   readonly alwaysApprove = new Set<string>();

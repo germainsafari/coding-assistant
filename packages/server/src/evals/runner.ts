@@ -3,8 +3,8 @@
 // commands and writes a JSON + Markdown report to evals/results/.
 import fs from 'node:fs';
 import path from 'node:path';
-import type { EvalReport, EvalTaskInfo, EvalTaskResult, Settings } from '@hearth/shared';
-import { DATA_DIR, EVALS_DIR, getSettings } from '../config.ts';
+import type { EvalReport, EvalTaskInfo, EvalTaskResult, ModelSettings, Settings } from '@hearth/shared';
+import { DATA_DIR, EVALS_DIR, settingsForProfile } from '../config.ts';
 import { projects, threads } from '../db.ts';
 import { probeCapabilities } from '../llm/client.ts';
 import { startRun, waitForRun } from '../agent/loop.ts';
@@ -44,15 +44,19 @@ export interface EvalProgress {
 }
 export const evalProgress: EvalProgress = { running: false, done: 0, total: 0, results: [] };
 
-export async function runEvals(opts: { taskIds?: string[]; log?: (s: string) => void; settings?: Partial<Settings> } = {}): Promise<EvalReport> {
+export async function runEvals(
+  opts: { taskIds?: string[]; log?: (s: string) => void; profileId?: string; model?: Partial<ModelSettings>; label?: string } = {},
+): Promise<EvalReport> {
   if (evalProgress.running) throw new Error('An eval run is already in progress');
   const log = opts.log ?? (() => {});
-  const base = getSettings();
-  const settings: Settings = { ...base, ...opts.settings, approvalMode: 'full-auto', model: { ...base.model, ...(opts.settings?.model ?? {}) } };
+  const base = settingsForProfile(opts.profileId);
+  const settings: Settings = { ...base, approvalMode: 'full-auto', model: { ...base.model, ...(opts.model ?? {}) } };
+  const profileName = base.profiles.find((p) => p.id === (opts.profileId ?? base.activeProfileId) || p.name === opts.profileId)?.name ?? settings.model.model;
   const caps = await probeCapabilities(settings.model, true);
   if (!caps.reachable) throw new Error(`Model server not reachable: ${caps.error}`);
   const tasks = listTasks().filter((t) => !opts.taskIds?.length || opts.taskIds.includes(t.id));
-  const reportId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const reportId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + (opts.label ? `-${opts.label.replace(/[^\w.-]+/g, '_')}` : '');
+  log(`Model ${settings.model.model} @ ${settings.model.baseUrl} (profile "${profileName}", tool mode ${caps.effectiveToolMode}, thinking ${settings.model.thinking}). ${tasks.length} task(s).`);
   Object.assign(evalProgress, { running: true, reportId, done: 0, total: tasks.length, results: [], current: undefined });
   const startedAt = Date.now();
   const results: EvalTaskResult[] = [];
@@ -75,6 +79,8 @@ export async function runEvals(opts: { taskIds?: string[]; log?: (s: string) => 
     startedAt,
     finishedAt: Date.now(),
     model: settings.model.model,
+    profile: profileName,
+    thinking: settings.model.thinking,
     toolMode: caps.effectiveToolMode,
     passed: results.filter((r) => r.passed).length,
     total: results.length,
@@ -141,7 +147,8 @@ export function reportMarkdown(r: EvalReport): string {
   const totalTime = r.results.reduce((a, x) => a + x.durationMs, 0) / 1000;
   return `# Eval report ${r.id}
 
-- Model: \`${r.model}\` (tool mode: ${r.toolMode})
+- Model: \`${r.model}\` (profile: ${r.profile ?? '-'}, tool mode: ${r.toolMode}, thinking: ${r.thinking ?? '-'})
+- Date: ${new Date(r.startedAt).toISOString().replace('T', ' ').slice(0, 16)} UTC
 - Score: **${r.passed}/${r.total}** (${r.total ? Math.round((r.passed / r.total) * 100) : 0}%)
 - Total agent time: ${totalTime.toFixed(0)}s
 

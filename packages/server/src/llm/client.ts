@@ -90,6 +90,8 @@ export async function chatStream(req: LlmRequest): Promise<LlmResult> {
     max_tokens: req.maxTokens ?? s.maxOutputTokens,
     chat_template_kwargs: { enable_thinking: req.thinking ?? s.thinking },
   };
+  if (s.topK > 0) body.top_k = s.topK;
+  if (s.reasoningEffort && (req.thinking ?? s.thinking)) body.reasoning_effort = s.reasoningEffort;
   if (req.tools?.length && req.mode !== 'prompt') {
     body.tools = req.tools;
     body.tool_choice = req.mode === 'native' ? 'auto' : 'none';
@@ -241,11 +243,30 @@ export async function chatOnce(
 }
 
 // ---------- capability probing ----------
-let capCache: { key: string; caps: Capabilities } | null = null;
+const capCache = new Map<string, Capabilities>();
+const inflight = new Map<string, Promise<Capabilities>>();
 
+/** Forget cached probe results (e.g. after the model server was restarted with new flags). */
+export function invalidateCapabilities() {
+  capCache.clear();
+}
+
+/**
+ * Detect what the server supports: reachability + context length (/v1/models),
+ * native tool calling (tool_choice=auto needs vLLM --enable-auto-tool-choice),
+ * template-rendered tools (tool_choice=none) and reasoning output. Cached for 5 min.
+ */
 export async function probeCapabilities(s: ModelSettings, force = false): Promise<Capabilities> {
   const key = `${s.baseUrl}|${s.model}|${s.toolMode}`;
-  if (!force && capCache && capCache.key === key && Date.now() - capCache.caps.checkedAt < 5 * 60_000) return capCache.caps;
+  const hit = capCache.get(key);
+  if (!force && hit && Date.now() - hit.checkedAt < (hit.reachable ? 5 * 60_000 : 10_000)) return hit;
+  if (!force && inflight.has(key)) return inflight.get(key)!;
+  const p = doProbe(s, key).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+async function doProbe(s: ModelSettings, key: string): Promise<Capabilities> {
   const caps: Capabilities = {
     reachable: false,
     models: [],
@@ -265,7 +286,7 @@ export async function probeCapabilities(s: ModelSettings, force = false): Promis
     if (m?.max_model_len) caps.maxModelLen = m.max_model_len;
   } catch (e) {
     caps.error = (e as Error).message;
-    capCache = { key, caps };
+    capCache.set(key, caps);
     return caps;
   }
   const tool: OAITool = {
@@ -299,6 +320,6 @@ export async function probeCapabilities(s: ModelSettings, force = false): Promis
   } catch {}
   caps.effectiveToolMode =
     s.toolMode !== 'auto' ? s.toolMode : caps.nativeTools ? 'native' : caps.templateTools ? 'template' : 'prompt';
-  capCache = { key, caps };
+  capCache.set(key, caps);
   return caps;
 }

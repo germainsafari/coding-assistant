@@ -3,8 +3,9 @@
 
 export type ApprovalMode = 'ask' | 'auto-edit' | 'full-auto';
 export type ToolMode = 'auto' | 'native' | 'template' | 'prompt';
-export type RunStatus = 'running' | 'completed' | 'cancelled' | 'error' | 'max_steps';
+export type RunStatus = 'running' | 'completed' | 'cancelled' | 'error' | 'max_steps' | 'budget_exhausted' | 'interrupted';
 export type ToolRisk = 'read' | 'edit' | 'shell' | 'network' | 'external';
+export type ReasoningEffort = '' | 'low' | 'medium' | 'high';
 
 export interface ModelSettings {
   baseUrl: string;
@@ -12,12 +13,40 @@ export interface ModelSettings {
   model: string;
   temperature: number;
   topP: number;
+  /** 0 = server default */
+  topK: number;
   maxOutputTokens: number;
   /** 0 = auto-detect from the server (/v1/models max_model_len) */
   contextLimit: number;
   thinking: boolean;
+  /** Sent as `reasoning_effort` when non-empty (models that support it). */
+  reasoningEffort: ReasoningEffort;
   toolMode: ToolMode;
   vision: boolean;
+}
+
+/** A named OpenAI-compatible endpoint + sampling settings. */
+export interface ModelProfile extends ModelSettings {
+  id: string;
+  name: string;
+}
+
+/** Options of an autonomous long-running run ("long-run mode"). */
+export interface LongRunOptions {
+  enabled: boolean;
+  /** Command that must exit 0 before the run may finish (e.g. "npm test"). Empty = no gate. */
+  doneCommand: string;
+  maxMinutes: number;
+  maxSteps: number;
+  /** How many times the done-command may fail before the run gives up. */
+  maxVerifyAttempts: number;
+}
+
+export interface RunOptions {
+  profileId?: string;
+  longRun?: LongRunOptions;
+  /** id of the interrupted run this one resumes */
+  resumeOf?: string;
 }
 
 export interface McpServerConfig {
@@ -33,8 +62,14 @@ export interface McpServerConfig {
 }
 
 export interface Settings {
+  /** Resolved active profile (read-only view of profiles[activeProfileId]). */
   model: ModelSettings;
+  profiles: ModelProfile[];
+  activeProfileId: string;
   approvalMode: ApprovalMode;
+  /** Compact the conversation when the prompt exceeds this fraction of the context window. */
+  compactAt: number;
+  longRun: Omit<LongRunOptions, 'enabled'> & { autoResume: boolean };
   maxSteps: number;
   shellTimeoutSec: number;
   projectsDir: string;
@@ -101,7 +136,7 @@ export interface TodoItem {
 }
 
 export type AgentEventBody =
-  | { type: 'run_started'; threadId: string; userMessage: string }
+  | { type: 'run_started'; threadId: string; userMessage: string; model: string; longRun?: LongRunOptions | null }
   | { type: 'step_started'; step: number }
   | { type: 'reasoning_delta'; text: string }
   | { type: 'text_delta'; text: string }
@@ -118,6 +153,7 @@ export type AgentEventBody =
   | { type: 'context_compacted'; beforeTokens: number; afterTokens: number; summary: string }
   | { type: 'usage'; promptTokens: number; completionTokens: number; contextLimit: number; tokensPerSec?: number }
   | { type: 'notice'; level: 'info' | 'warn'; text: string }
+  | { type: 'verification'; command: string; passed: boolean; output: string; attempt: number }
   | { type: 'subagent_event'; parentCallId: string; event: AgentEvent }
   | { type: 'error'; message: string }
   | { type: 'run_finished'; status: RunStatus; error?: string };
@@ -158,6 +194,7 @@ export interface RunRecord {
   userMessage: string;
   error?: string | null;
   source: string;
+  options?: RunOptions | null;
 }
 
 export interface Metrics {
@@ -222,6 +259,8 @@ export interface EvalReport {
   startedAt: number;
   finishedAt: number;
   model: string;
+  profile?: string;
+  thinking?: boolean;
   toolMode: string;
   passed: number;
   total: number;

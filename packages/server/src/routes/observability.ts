@@ -78,8 +78,8 @@ export function observabilityRoutes(app: FastifyInstance) {
   app.get('/api/evals/status', async () => evalProgress);
   app.post('/api/evals/run', async (req, reply) => {
     if (evalProgress.running) return reply.code(409).send({ error: 'Eval already running' });
-    const b = (req.body ?? {}) as { taskIds?: string[] };
-    runEvals({ taskIds: b.taskIds, log: (s) => console.log('[eval]', s) }).catch((e) => console.error('[eval] failed', e));
+    const b = (req.body ?? {}) as { taskIds?: string[]; profileId?: string };
+    runEvals({ taskIds: b.taskIds, profileId: b.profileId, log: (s) => console.log('[eval]', s) }).catch((e) => console.error('[eval] failed', e));
     await new Promise((r) => setTimeout(r, 300));
     return evalProgress;
   });

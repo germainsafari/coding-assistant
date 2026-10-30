@@ -2,11 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { getSettings, publicSettings, updateSettings } from '../config.ts';
-import { memories, messages, projects, threads } from '../db.ts';
-import { probeCapabilities } from '../llm/client.ts';
+import type { LongRunOptions } from '@hearth/shared';
+import { getSettings, publicSettings, settingsForProfile, updateSettings } from '../config.ts';
+import { memories, messages, projects, runs, threads } from '../db.ts';
+import { invalidateCapabilities, probeCapabilities } from '../llm/client.ts';
 import { activeByThread, activeRuns } from '../agent/runs.ts';
-import { startRun } from '../agent/loop.ts';
+import { resumeThread, startRun } from '../agent/loop.ts';
 import * as G from '../git.ts';
 import { listSkills, loadSkill } from '../skills.ts';
 import { mcpStatus, syncMcp } from '../mcp.ts';
@@ -16,8 +17,8 @@ export function coreRoutes(app: FastifyInstance) {
   app.get('/api/health', async () => ({ ok: true, name: 'hearth', version: '0.1.0', platform: process.platform }));
 
   app.get('/api/capabilities', async (req) => {
-    const force = (req.query as any).force === '1';
-    return probeCapabilities(getSettings().model, force);
+    const q = req.query as any;
+    return probeCapabilities(settingsForProfile(q.profileId || undefined).model, q.force === '1');
   });
 
   app.get('/api/settings', async () => publicSettings());
@@ -26,6 +27,8 @@ export function coreRoutes(app: FastifyInstance) {
     delete patch.hasGithubToken;
     if (typeof patch.githubToken === 'string' && patch.githubToken.startsWith('••••')) delete patch.githubToken;
     updateSettings(patch);
+    // endpoints / flags may have changed: re-detect native tool support on next use
+    if (patch.profiles || patch.model || patch.activeProfileId) invalidateCapabilities();
     return publicSettings();
   });
 
@@ -102,6 +105,7 @@ export function coreRoutes(app: FastifyInstance) {
       messages: messages.list(id),
       todos: threads.getTodos(id),
       summary: threads.getSummary(id).summary,
+      lastRun: runs.lastForThread(id) ?? null,
     };
   });
   app.patch('/api/threads/:id', async (req) => {
@@ -117,12 +121,23 @@ export function coreRoutes(app: FastifyInstance) {
   // ---------- runs ----------
   app.post('/api/threads/:id/runs', async (req, reply) => {
     const id = (req.params as any).id;
-    const b = req.body as { message: string };
+    const b = req.body as { message: string; profileId?: string; longRun?: Partial<LongRunOptions> };
     if (!b?.message?.trim()) return reply.code(400).send({ error: 'message is required' });
     if (activeByThread.has(id)) return reply.code(409).send({ error: 'A run is already active in this thread', runId: activeByThread.get(id) });
-    const h = startRun(id, b.message.trim());
+    const h = startRun(id, b.message.trim(), { options: { profileId: b.profileId || undefined, longRun: b.longRun } });
     return { runId: h.id };
   });
+
+  app.post('/api/threads/:id/resume', async (req, reply) => {
+    const id = (req.params as any).id;
+    if (!threads.get(id)) return reply.code(404).send({ error: 'Thread not found' });
+    if (activeByThread.has(id)) return reply.code(409).send({ error: 'A run is already active in this thread', runId: activeByThread.get(id) });
+    return { runId: resumeThread(id).id };
+  });
+
+  app.get('/api/runs/active', async () =>
+    [...activeRuns.values()].filter((h) => h.status === 'running').map((h) => ({ runId: h.id, threadId: h.threadId, projectId: h.projectId })),
+  );
 
   app.get('/api/runs/:id/events', async (req, reply) => {
     const h = activeRuns.get((req.params as any).id);

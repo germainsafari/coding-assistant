@@ -47,6 +47,18 @@ export function toOpenAIMessages(stored: StoredMessage[], mode: 'native' | 'temp
   if (opts.vision) for (let i = stored.length - 1; i >= 0; i--) if (stored[i].meta?.image) { lastImageIdx = i; break; }
   let pendingImage: StoredMessage | null = null;
 
+  // Tool calls whose results were never stored (run crashed / cancelled mid-tool)
+  // get a synthetic result so that every call is answered, as chat templates expect.
+  const answered = new Set(stored.filter((m) => m.role === 'tool').map((m) => m.toolCallId));
+  const orphanResults = (calls: { id: string; name: string }[]) => {
+    for (const c of calls) {
+      if (answered.has(c.id)) continue;
+      const content = '[no result: the run was interrupted before this tool finished]';
+      if (mode === 'prompt') out.push({ role: 'user', content: `<tool_response>\n${content}\n</tool_response>` });
+      else out.push({ role: 'tool', tool_call_id: c.id, content });
+    }
+  };
+
   for (let i = 0; i < stored.length; i++) {
     const m = stored[i];
     const prune = opts.pruneBefore !== undefined && i < opts.pruneBefore;
@@ -54,6 +66,7 @@ export function toOpenAIMessages(stored: StoredMessage[], mode: 'native' | 'temp
       out.push({ role: 'user', content: m.content });
     } else if (m.role === 'assistant') {
       const calls = m.toolCalls ?? [];
+      const nextIsTool = stored[i + 1]?.role === 'tool';
       if (mode === 'prompt') {
         const text = [m.content, ...calls.map((c) => xmlToolCall(c.name, c.arguments))].filter(Boolean).join('\n\n');
         out.push({ role: 'assistant', content: text || '(no output)' });
@@ -66,6 +79,7 @@ export function toOpenAIMessages(stored: StoredMessage[], mode: 'native' | 'temp
             : {}),
         });
       }
+      if (calls.length && !nextIsTool) orphanResults(calls);
     } else if (m.role === 'tool') {
       let content = m.content;
       if (prune && content.length > 1500) content = content.slice(0, 700) + PRUNED_NOTE;
@@ -82,6 +96,11 @@ export function toOpenAIMessages(stored: StoredMessage[], mode: 'native' | 'temp
       // user message after the batch of tool results it belongs to.
       if (i === lastImageIdx) pendingImage = m;
       const batchEnds = !stored[i + 1] || stored[i + 1].role !== 'tool';
+      if (batchEnds) {
+        let a = i;
+        while (a >= 0 && stored[a].role === 'tool') a--;
+        if (a >= 0 && stored[a].role === 'assistant') orphanResults(stored[a].toolCalls ?? []);
+      }
       if (pendingImage && batchEnds) {
         out.push({
           role: 'user',
@@ -105,10 +124,13 @@ export interface BuiltContext {
 
 export interface ContextOptions {
   threadId: string;
-  systemPrompt: string;
+  /** Called on every build so the prompt can be refreshed after a compaction. */
+  systemPrompt: string | (() => string);
   mode: 'native' | 'template' | 'prompt';
   model: ModelSettings;
   contextLimit: number;
+  /** Compact when the prompt exceeds this fraction of the context window (default 0.65). */
+  compactAt?: number;
   tools?: OAITool[];
   signal?: AbortSignal;
   onCompact?: (info: { beforeTokens: number; afterTokens: number; summary: string; durationMs: number; promptTokens: number; completionTokens: number }) => void;
@@ -119,7 +141,8 @@ const KEEP_RECENT = 10;
 function build(opts: ContextOptions, pruneOld: boolean): BuiltContext {
   const { summary, upto } = threads.getSummary(opts.threadId);
   const stored = messagesDb.list(opts.threadId, upto);
-  const msgs: OAIMessage[] = [{ role: 'system', content: opts.systemPrompt }];
+  const sys = typeof opts.systemPrompt === 'function' ? opts.systemPrompt() : opts.systemPrompt;
+  const msgs: OAIMessage[] = [{ role: 'system', content: sys }];
   if (summary) {
     msgs.push({ role: 'user', content: `[Summary of the earlier part of this conversation, written by you before older messages were removed to save context]\n${summary}` });
     msgs.push({ role: 'assistant', content: 'Understood. I will continue from this summary.' });
@@ -132,11 +155,14 @@ function build(opts: ContextOptions, pruneOld: boolean): BuiltContext {
 
 /** Build the prompt, pruning/compacting as needed to fit the context window. */
 export async function buildContext(opts: ContextOptions): Promise<BuiltContext> {
+  // hard budget: always leave room for the reply
   const budget = opts.contextLimit - Math.min(opts.model.maxOutputTokens, Math.floor(opts.contextLimit * 0.25));
+  const trigger = Math.min(budget, opts.contextLimit * (opts.compactAt ?? 0.65));
   let ctx = build(opts, false);
-  if (ctx.estTokens <= budget * 0.8) return ctx;
+  if (ctx.estTokens <= trigger) return ctx;
+  // first, cheaply drop the bodies of old tool outputs
   ctx = build(opts, true);
-  if (ctx.estTokens <= budget * 0.8) return ctx;
+  if (ctx.estTokens <= trigger * 0.9) return ctx;
   await compact(opts, ctx.estTokens);
   ctx = build(opts, true);
   if (ctx.estTokens > budget) {
@@ -180,12 +206,24 @@ export async function compact(opts: ContextOptions, beforeTokens: number) {
     [
       {
         role: 'system',
-        content:
-          'You compress a coding-agent conversation into a dense summary that lets the agent continue seamlessly. Include: the user\'s goals and requirements (verbatim if short), decisions made, files created/modified (with paths) and their purpose, commands run and key results/errors, current state, and remaining TODOs. Use concise Markdown bullets. Max ~600 words.',
+        content: `You compress a coding-agent conversation into a dense checkpoint summary that lets the agent continue seamlessly after the older messages are deleted. Use exactly these Markdown sections:
+## Goal
+(the user's request and requirements; quote short instructions verbatim)
+## Constraints & preferences
+## Done so far
+(bullets: what was completed, with file paths)
+## Files touched
+(path - purpose / current state)
+## Key findings & errors
+(commands run and important results, error messages, what did NOT work)
+## Current state
+## Next steps
+(ordered, concrete)
+Be specific and factual. Max ~700 words.`,
       },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 1500, thinking: false, signal: opts.signal },
+    { maxTokens: 2000, thinking: false, signal: opts.signal },
   );
   const summary = r.content.trim();
   threads.setSummary(opts.threadId, summary, old[old.length - 1].seq);

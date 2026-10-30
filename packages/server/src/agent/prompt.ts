@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Project, Settings } from '@hearth/shared';
+import type { LongRunOptions, Project, Settings } from '@hearth/shared';
+import { longRunPromptSection } from './longrun.ts';
 import { memories } from '../db.ts';
 import { listSkills } from '../skills.ts';
 import { shellName } from '../shell.ts';
@@ -17,6 +18,7 @@ export function buildSystemPrompt(opts: {
   userMessage: string;
   subagent?: boolean;
   readOnly?: boolean;
+  longRun?: LongRunOptions | null;
 }): string {
   const { project, settings, tools } = opts;
   const parts: string[] = [];
@@ -63,6 +65,8 @@ export function buildSystemPrompt(opts: {
       `# Skills\nSkills are packaged instructions for specific tasks. When a task matches a skill, call load_skill with its name first and follow it.\n${skills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`,
     );
   }
+
+  if (opts.longRun?.enabled && !opts.subagent) parts.push(longRunPromptSection(project.path, opts.longRun));
 
   if (opts.mode === 'prompt') parts.push(promptModeToolInstructions(tools));
   return parts.join('\n\n');

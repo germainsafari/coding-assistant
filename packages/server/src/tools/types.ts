@@ -1,4 +1,4 @@
-import type { AgentEventBody, Project, Settings, ToolRisk } from '@hearth/shared';
+import type { AgentEventBody, LongRunOptions, Project, Settings, ToolRisk } from '@hearth/shared';
 
 export interface ToolContext {
   project: Project;
@@ -9,6 +9,7 @@ export interface ToolContext {
   signal: AbortSignal;
   depth: number;
   callId: string;
+  longRun?: LongRunOptions | null;
   emit: (e: AgentEventBody) => void;
   askUser: (question: string, options?: string[]) => Promise<string>;
   runSubagent: (task: string, opts: { readOnly: boolean }) => Promise<string>;

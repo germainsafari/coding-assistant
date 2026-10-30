@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Settings } from '@hearth/shared';
+import type { ModelProfile, ModelSettings, Settings } from '@hearth/shared';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** Repository root (…/packages/server/src -> …) */
@@ -34,21 +34,32 @@ function loadDotEnv(file: string) {
   }
 }
 
-export function defaultSettings(): Settings {
+export function defaultModel(): ModelSettings {
   return {
-    model: {
-      baseUrl: process.env.HEARTH_LLM_BASE_URL || 'http://localhost:8080/v1',
-      apiKey: process.env.HEARTH_LLM_API_KEY || 'local',
-      model: process.env.HEARTH_LLM_MODEL || 'qwen3.6-35b-a3b',
-      temperature: 0.6,
-      topP: 0.95,
-      maxOutputTokens: 12000,
-      contextLimit: 0,
-      thinking: true,
-      toolMode: 'auto',
-      vision: true,
-    },
+    baseUrl: process.env.HEARTH_LLM_BASE_URL || 'http://localhost:8080/v1',
+    apiKey: process.env.HEARTH_LLM_API_KEY || 'local',
+    model: process.env.HEARTH_LLM_MODEL || 'qwen3.6-35b-a3b',
+    temperature: 0.6,
+    topP: 0.95,
+    topK: 20,
+    maxOutputTokens: 12000,
+    contextLimit: 0,
+    thinking: true,
+    reasoningEffort: '',
+    toolMode: 'auto',
+    vision: true,
+  };
+}
+
+export function defaultSettings(): Settings {
+  const model = defaultModel();
+  return {
+    model,
+    profiles: [{ id: 'default', name: model.model, ...model }],
+    activeProfileId: 'default',
     approvalMode: 'auto-edit',
+    compactAt: 0.65,
+    longRun: { doneCommand: '', maxMinutes: 240, maxSteps: 400, maxVerifyAttempts: 6, autoResume: true },
     maxSteps: 40,
     shellTimeoutSec: 120,
     projectsDir: path.join(os.homedir(), 'HearthProjects'),
@@ -71,7 +82,7 @@ function deepMerge<T>(base: T, over: any): T {
   for (const k of Object.keys(over)) {
     const b = (base as any)[k];
     // free-form maps are replaced wholesale so that deleting an entry works
-    if (k === 'mcpServers') out[k] = over[k];
+    if (k === 'mcpServers' || k === 'profiles') out[k] = over[k];
     else out[k] = b !== undefined && typeof b === 'object' && !Array.isArray(b) && b !== null ? deepMerge(b, over[k]) : over[k];
   }
   return out;
@@ -87,15 +98,57 @@ export function getSettings(): Settings {
       console.error('[settings] could not parse settings.json, using defaults', e);
     }
   }
-  cached = deepMerge(defaultSettings(), fromFile);
+  // legacy settings.json (single "model" object) -> one profile
+  if (!Array.isArray(fromFile.profiles) && fromFile.model) {
+    fromFile.profiles = [{ id: 'default', name: fromFile.model.model ?? 'default', ...defaultModel(), ...fromFile.model }];
+    fromFile.activeProfileId = 'default';
+  }
+  delete fromFile.model;
+  cached = resolve(deepMerge(defaultSettings(), fromFile));
   // env always wins for the GitHub token if settings is empty
   if (!cached.githubToken && process.env.GITHUB_TOKEN) cached.githubToken = process.env.GITHUB_TOKEN;
   return cached;
 }
 
+/** Fill missing profile fields with defaults and point `model` at the active profile. */
+function resolve(s: Settings): Settings {
+  const base = defaultModel();
+  s.profiles = (s.profiles?.length ? s.profiles : defaultSettings().profiles).map((p, i) => ({
+    ...base,
+    ...p,
+    id: String(p.id || `profile${i + 1}`),
+    name: String(p.name || p.model || `Profile ${i + 1}`),
+  }));
+  const active = s.profiles.find((p) => p.id === s.activeProfileId) ?? s.profiles[0];
+  s.activeProfileId = active.id;
+  s.model = profileToModel(active);
+  return s;
+}
+
+export function profileToModel(p: ModelProfile): ModelSettings {
+  const { id: _id, name: _name, ...m } = p;
+  return m;
+}
+
+/** Settings with `model` replaced by another profile (for per-run / per-eval overrides). */
+export function settingsForProfile(profileId: string | undefined, s: Settings = getSettings()): Settings {
+  if (!profileId) return s;
+  const p = s.profiles.find((x) => x.id === profileId || x.name === profileId);
+  if (!p) throw new Error(`Unknown model profile "${profileId}". Known: ${s.profiles.map((x) => x.id).join(', ')}`);
+  return { ...s, model: profileToModel(p) };
+}
+
 export function updateSettings(patch: Partial<Settings> | any): Settings {
-  const next = deepMerge(getSettings(), patch);
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(next, null, 2));
+  const p = { ...patch };
+  // `model` is a derived view; a patch to it edits the active profile
+  if (p.model && !p.profiles) {
+    const cur = getSettings();
+    p.profiles = cur.profiles.map((x) => (x.id === (p.activeProfileId ?? cur.activeProfileId) ? { ...x, ...p.model } : x));
+  }
+  delete p.model;
+  const next = resolve(deepMerge(getSettings(), p));
+  const { model: _derived, ...persist } = next;
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(persist, null, 2));
   cached = next;
   for (const l of listeners) l(next);
   return next;

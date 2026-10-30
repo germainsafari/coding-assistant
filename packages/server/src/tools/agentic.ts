@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { TodoItem } from '@hearth/shared';
 import { memories, threads } from '../db.ts';
 import { loadSkill } from '../skills.ts';
+import { writePlanFile } from '../agent/longrun.ts';
 import { fail, ok, str, type ToolDef } from './types.ts';
 
 export const NOTES_FILES = ['AGENTS.md', 'AGENT.md', 'CLAUDE.md'];
@@ -117,6 +118,7 @@ const updatePlan: ToolDef = {
       status: ['pending', 'in_progress', 'completed', 'cancelled'].includes(t.status) ? t.status : 'pending',
     }));
     threads.setTodos(ctx.threadId, todos);
+    if (ctx.longRun?.enabled && ctx.depth === 0) writePlanFile(ctx.root, todos);
     ctx.emit({ type: 'plan_updated', todos });
     const done = todos.filter((t) => t.status === 'completed').length;
     return ok(`Plan updated (${done}/${todos.length} done).`);
