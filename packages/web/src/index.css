@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+  --color-accent: #f97316;
+  --color-accent-soft: #fb923c;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  @apply bg-zinc-950 text-zinc-200 antialiased;
+  font-size: 14px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+textarea,
+select {
+  @apply rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-orange-500/70;
+}
+select {
+  @apply py-1;
+}
+input[type='checkbox'] {
+  @apply h-4 w-4 accent-orange-500;
+}
+label.field {
+  @apply flex flex-col gap-1 text-xs text-zinc-400;
+}
+
+/* Markdown rendering for assistant messages */
+.md {
+  @apply text-[14px] leading-relaxed text-zinc-200;
+  overflow-wrap: anywhere;
+}
+.md > * + * {
+  @apply mt-2.5;
+}
+.md h1 {
+  @apply text-xl font-semibold text-zinc-100;
+}
+.md h2 {
+  @apply text-lg font-semibold text-zinc-100;
+}
+.md h3,
+.md h4 {
+  @apply font-semibold text-zinc-100;
+}
+.md ul {
+  @apply list-disc pl-5;
+}
+.md ol {
+  @apply list-decimal pl-5;
+}
+.md li + li {
+  @apply mt-1;
+}
+.md a {
+  @apply text-orange-400 underline underline-offset-2;
+}
+.md code {
+  @apply rounded bg-zinc-800 px-1 py-0.5 font-mono text-[12.5px] text-orange-200;
+}
+.md pre {
+  @apply overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 text-[12.5px] leading-snug;
+}
+.md pre code {
+  @apply bg-transparent p-0 text-zinc-200;
+}
+.md blockquote {
+  @apply border-l-2 border-zinc-600 pl-3 text-zinc-400;
+}
+.md table {
+  @apply w-full border-collapse text-[13px];
+}
+.md th,
+.md td {
+  @apply border border-zinc-700 px-2 py-1 text-left;
+}
+.md hr {
+  @apply border-zinc-700;
+}
+
+.diff-line-add {
+  @apply bg-emerald-950/60 text-emerald-300;
+}
+.diff-line-del {
+  @apply bg-rose-950/60 text-rose-300;
+}
+.diff-line-hunk {
+  @apply bg-sky-950/40 text-sky-300;
+}
+
+[data-separator] {
+  @apply w-1 bg-zinc-800 transition-colors hover:bg-orange-500/60;
+}
+[data-separator][aria-orientation='horizontal'] {
+  @apply h-1 w-auto;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.caret::after {
+  content: '▍';
+  @apply ml-0.5 text-orange-400;
+  animation: blink 1s steps(1) infinite;
+}
