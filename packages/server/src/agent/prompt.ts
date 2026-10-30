@@ -34,7 +34,7 @@ export function buildSystemPrompt(opts: {
   parts.push(`# Environment
 - Operating system: ${os.type()} ${os.release()} (${process.platform}/${process.arch})
 - Shell used by run_shell: ${shellName()}${process.platform === 'win32' ? ' — use PowerShell syntax (e.g. `;` to chain, `$env:VAR`, `Get-ChildItem`); `&&` is not available in Windows PowerShell 5.1.' : ''}
-- Project root (all paths are relative to it): ${project.path}
+- Project root (all paths are relative to it): ${project.path}. You are already inside it, so write \`src/app.py\`, not \`${project.name}/src/app.py\`.
 - Today: ${new Date().toISOString().slice(0, 10)}
 - Approval mode: ${settings.approvalMode} (risky actions may need user approval; if a tool call is denied, adapt or ask).`);
 

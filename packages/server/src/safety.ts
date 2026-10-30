@@ -10,7 +10,7 @@ const norm = (p: string) => (isWindows ? p.toLowerCase() : p);
 /** Resolve `p` (absolute or relative to `root`) and ensure it stays inside `root`. */
 export function resolveInProject(root: string, p: string | undefined | null): string {
   const rootAbs = path.resolve(root);
-  const target = path.resolve(rootAbs, (p ?? '.').toString().trim() || '.');
+  const target = path.resolve(rootAbs, stripRootNamePrefix(rootAbs, (p ?? '.').toString().trim() || '.'));
   const check = (abs: string) => {
     const rel = path.relative(norm(rootAbs), norm(abs));
     if (rel.startsWith('..') || path.isAbsolute(rel)) {
@@ -30,6 +30,18 @@ export function resolveInProject(root: string, p: string | undefined | null): st
     if (e instanceof SandboxError) throw e;
   }
   return target;
+}
+
+/**
+ * Models often prefix relative paths with the project folder's own name ("myproj/src/a.ts" while
+ * already inside myproj). Drop that segment unless the project really contains such a folder.
+ */
+function stripRootNamePrefix(rootAbs: string, p: string): string {
+  if (path.isAbsolute(p)) return p;
+  const [first, ...rest] = p.split(/[\\/]+/);
+  if (!rest.length || norm(first) !== norm(path.basename(rootAbs))) return p;
+  if (fs.existsSync(path.join(rootAbs, first))) return p;
+  return rest.join('/');
 }
 
 export const relPath = (root: string, abs: string) => path.relative(root, abs).split(path.sep).join('/') || '.';

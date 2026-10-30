@@ -14,6 +14,18 @@ test('paths inside the project resolve', () => {
   assert.equal(resolveInProject(root, path.join(root, 'new', 'file.txt')), path.join(root, 'new', 'file.txt'));
 });
 
+test('a redundant project-name prefix is dropped unless such a folder exists', () => {
+  const name = path.basename(root);
+  assert.equal(resolveInProject(root, `${name}/wordfreq.py`), path.join(root, 'wordfreq.py'));
+  assert.equal(resolveInProject(root, name), path.join(root, name));
+  fs.mkdirSync(path.join(root, name));
+  try {
+    assert.equal(resolveInProject(root, `${name}/wordfreq.py`), path.join(root, name, 'wordfreq.py'));
+  } finally {
+    fs.rmdirSync(path.join(root, name));
+  }
+});
+
 test('paths outside the project are rejected', () => {
   for (const p of ['..', '../x', 'src/../../x', os.homedir(), path.parse(root).root]) {
     assert.throws(() => resolveInProject(root, p), SandboxError, p);
