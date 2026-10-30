@@ -79,7 +79,7 @@ export function ConnectorsTab() {
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-zinc-200">LanguageTool (grammar & spelling)</h3>
         <p className="text-xs text-zinc-400">
-          Used by the <code>languagetool_check</code> agent tool and to polish generated commit messages / PR descriptions. Run it locally with Docker: <code>docker run -d -p 8081:8010 erikvl87/languagetool</code>.
+          Used by the <code>languagetool_check</code> agent tool and to polish generated commit messages / PR descriptions. Run it locally with Docker: <code>docker run -d --name languagetool -p 8081:8081 meyay/languagetool</code>.
         </p>
         <div className="flex gap-2">
           <input className="flex-1 font-mono" value={ltUrl} onChange={(e) => setLtUrl(e.target.value)} />

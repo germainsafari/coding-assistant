@@ -1,0 +1,8 @@
+{
+  "title": "Fix an inventory bug without touching the tests (Python)",
+  "prompt": "Some unit tests fail. Run them with `python -m unittest discover -s tests -v` (use `python3` if `python` is not available), find the bugs in inventory.py and fix them. Do not modify the tests.",
+  "check": "{python} -m unittest discover -s tests -v",
+  "tags": ["bugfix", "python"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

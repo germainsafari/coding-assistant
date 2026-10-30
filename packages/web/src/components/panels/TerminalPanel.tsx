@@ -108,10 +108,10 @@ export function TerminalPanel({ projectId }: { projectId: string }) {
       <pre ref={pre} className="min-h-0 flex-1 overflow-auto bg-black/40 p-3 font-mono text-[12px] leading-snug whitespace-pre-wrap text-zinc-300">
         {view ? procOut || '(no output yet)' : out || 'Run commands in the project folder. Commands run non-interactively (PowerShell on Windows, bash on Linux/macOS). Tick "background" for dev servers.'}
       </pre>
-      <div className="flex shrink-0 items-center gap-2 border-t border-zinc-800 px-2 py-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 px-2 py-1.5">
         <span className="font-mono text-xs text-orange-400">$</span>
         <input
-          className="min-w-0 flex-1 border-0 bg-transparent font-mono text-xs focus:border-0"
+          className="min-w-40 flex-1 border-0 bg-transparent font-mono text-xs focus:border-0"
           value={cmd}
           placeholder={running ? 'running…' : 'npm test'}
           onChange={(e) => setCmd(e.target.value)}
@@ -127,7 +127,7 @@ export function TerminalPanel({ projectId }: { projectId: string }) {
             }
           }}
         />
-        <label className="flex items-center gap-1 text-[11px] text-zinc-500">
+        <label className="flex items-center gap-1 text-[11px] whitespace-nowrap text-zinc-500">
           <input type="checkbox" checked={bg} onChange={(e) => setBg(e.target.checked)} /> background
         </label>
         {running ? (

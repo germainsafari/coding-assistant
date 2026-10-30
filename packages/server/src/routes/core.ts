@@ -50,7 +50,7 @@ export function coreRoutes(app: FastifyInstance) {
       if (!name || /[<>:"|?*]/.test(name)) return reply.code(400).send({ error: 'A valid project name is required' });
       dir = b.path ? path.resolve(b.path) : path.join(s.projectsDir, name);
       fs.mkdirSync(dir, { recursive: true });
-      if (!(await G.isRepo(dir))) await G.git(dir, ['init', '-b', 'main']);
+      if (!(await G.isRepo(dir))) await G.initRepo(dir);
     } else if (b.mode === 'clone') {
       if (!b.url) return reply.code(400).send({ error: 'url is required' });
       let url = b.url.trim();

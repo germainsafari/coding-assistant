@@ -1,0 +1,8 @@
+{
+  "title": "Rename a function across files, tests and docs (JavaScript)",
+  "prompt": "Rename the function `getUserName` to `getDisplayName` everywhere in this project: the definition, all imports and call sites, the tests and the README. Behaviour must not change and `npm test` must still pass.",
+  "check": ["node check_rename.mjs", "node --test"],
+  "tags": ["refactor", "javascript", "multi-file"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

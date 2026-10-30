@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getSettings } from './config.ts';
 
 export interface GitResult {
@@ -28,6 +30,16 @@ export function git(cwd: string, args: string[], opts: { timeoutMs?: number; inp
       p.stdin?.end();
     }
   });
+}
+
+const DEFAULT_GITIGNORE = ['node_modules/', '__pycache__/', '*.pyc', '.venv/', 'venv/', 'dist/', 'build/', '.env', '.DS_Store', ''].join('\n');
+
+/** `git init` on main, adding a default .gitignore when the folder has none. */
+export async function initRepo(dir: string): Promise<GitResult> {
+  const r = await git(dir, ['init', '-b', 'main']);
+  const ignore = path.join(dir, '.gitignore');
+  if (r.code === 0 && !fs.existsSync(ignore)) fs.writeFileSync(ignore, DEFAULT_GITIGNORE);
+  return r;
 }
 
 /** Extra args that authenticate HTTPS GitHub operations with the configured token. */
@@ -108,10 +120,11 @@ export async function log(cwd: string, n = 20) {
 }
 
 export async function branches(cwd: string) {
-  const r = await git(cwd, ['branch', '-a', '--format=%(HEAD)%x1f%(refname:short)']);
+  // for-each-ref formats spell hex escapes %1f, unlike `git log` (%x1f)
+  const r = await git(cwd, ['branch', '-a', '--format=%(HEAD)%1f%(refname:short)']);
   return r.stdout
     .split(/\r?\n/)
-    .filter(Boolean)
+    .filter((l) => l.includes('\x1f'))
     .map((l) => {
       const [head, name] = l.split('\x1f');
       return { name, current: head === '*', remote: name.startsWith('origin/') || name.startsWith('remotes/') };

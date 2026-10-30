@@ -163,8 +163,8 @@ export async function buildContext(opts: ContextOptions): Promise<BuiltContext> 
   // first, cheaply drop the bodies of old tool outputs
   ctx = build(opts, true);
   if (ctx.estTokens <= trigger * 0.9) return ctx;
-  await compact(opts, ctx.estTokens);
-  ctx = build(opts, true);
+  const compacted = await compact(opts, ctx.estTokens, Math.floor(trigger * 0.5));
+  if (compacted) ctx = build(opts, true);
   if (ctx.estTokens > budget) {
     // last resort: hard-truncate the largest remaining messages
     for (const m of ctx.messages.slice(1)) {
@@ -176,19 +176,38 @@ export async function buildContext(opts: ContextOptions): Promise<BuiltContext> 
   return ctx;
 }
 
-/** Summarize everything except the most recent turns into threads.summary. */
-export async function compact(opts: ContextOptions, beforeTokens: number) {
+const MIN_WORTH_COMPACTING = 1500;
+
+/**
+ * Index where the kept tail of the conversation starts. Whole turns (a user message, or an
+ * assistant message with its tool results) are kept from the end while they fit in
+ * `keepTokens`, at most KEEP_RECENT messages, and always at least the last turn.
+ */
+export function compactionCut(stored: StoredMessage[], keepTokens: number): number {
+  const size = (m: StoredMessage) => estimateTokens(m.content) + (m.toolCalls ? estimateTokens(JSON.stringify(m.toolCalls)) : 0) + 4;
+  let cut = stored.length;
+  let kept = 0;
+  while (cut > 0) {
+    let start = cut - 1;
+    while (start > 0 && stored[start].role === 'tool') start--;
+    const turn = stored.slice(start, cut).reduce((n, m) => n + size(m), 0);
+    const first = cut === stored.length;
+    if (!first && (kept + turn > keepTokens || stored.length - start > KEEP_RECENT)) break;
+    kept += turn;
+    cut = start;
+  }
+  return cut;
+}
+
+/** Summarize everything except the most recent turns into threads.summary. Returns false if there was nothing worth compacting. */
+export async function compact(opts: ContextOptions, beforeTokens: number, keepTokens = Math.floor(opts.contextLimit * 0.3)): Promise<boolean> {
   const t0 = Date.now();
   const { summary: prevSummary, upto } = threads.getSummary(opts.threadId);
   const stored = messagesDb.list(opts.threadId, upto);
-  if (stored.length <= 4) return;
-  // cut point: keep the last KEEP_RECENT messages, moving the cut back so it starts at a user/assistant message
-  let cut = Math.max(1, stored.length - KEEP_RECENT);
-  while (cut > 0 && stored[cut].role === 'tool') cut--;
-  if (cut <= 0) cut = Math.max(1, stored.length - 4);
-  while (cut < stored.length && stored[cut].role === 'tool') cut++;
+  const cut = compactionCut(stored, keepTokens);
   const old = stored.slice(0, cut);
-  if (!old.length) return;
+  const oldTokens = old.reduce((n, m) => n + estimateTokens(m.content), 0);
+  if (!old.length || oldTokens < MIN_WORTH_COMPACTING) return false;
 
   const transcript = old
     .map((m) => {
@@ -229,4 +248,5 @@ Be specific and factual. Max ~700 words.`,
   threads.setSummary(opts.threadId, summary, old[old.length - 1].seq);
   const after = build(opts, true).estTokens;
   opts.onCompact?.({ beforeTokens, afterTokens: after, summary, durationMs: Date.now() - t0, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
+  return true;
 }

@@ -7,6 +7,7 @@ import type { ModelProfile, ModelSettings, Settings } from '@hearth/shared';
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** Repository root (…/packages/server/src -> …) */
 export const APP_ROOT = path.resolve(here, '..', '..', '..');
+loadDotEnv(path.join(APP_ROOT, '.env'));
 export const DATA_DIR = path.resolve(process.env.HEARTH_DATA_DIR || path.join(APP_ROOT, 'data'));
 export const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 export const DB_PATH = path.join(DATA_DIR, 'hearth.db');
@@ -20,8 +21,6 @@ export const PORT = Number(process.env.HEARTH_PORT || (DEV ? 3001 : 3000));
 export const HOST = process.env.HEARTH_HOST || '127.0.0.1';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
-
-loadDotEnv(path.join(APP_ROOT, '.env'));
 
 function loadDotEnv(file: string) {
   if (!fs.existsSync(file)) return;
@@ -62,7 +61,7 @@ export function defaultSettings(): Settings {
     longRun: { doneCommand: '', maxMinutes: 240, maxSteps: 400, maxVerifyAttempts: 6, autoResume: true },
     maxSteps: 40,
     shellTimeoutSec: 120,
-    projectsDir: path.join(os.homedir(), 'HearthProjects'),
+    projectsDir: process.env.HEARTH_PROJECTS_DIR || path.join(os.homedir(), 'HearthProjects'),
     languageToolUrl: process.env.HEARTH_LANGUAGETOOL_URL || 'http://localhost:8081',
     githubToken: process.env.GITHUB_TOKEN || '',
     mcpServers: {},

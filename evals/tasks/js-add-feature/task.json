@@ -1,0 +1,8 @@
+{
+  "title": "Add two features to an existing class, with tests (JavaScript)",
+  "prompt": "Add two features to `TodoList` in src/todos.js:\n\n1. `remove(id)` deletes the todo with that id and returns it. If there is no such todo it throws an Error whose message contains the id.\n2. `list()` takes an optional filter: `list()` returns all todos as it does now, `list({ done: true })` returns only completed todos and `list({ done: false })` only open ones.\n\nAdd tests for both features to test/todos.test.mjs and keep the existing tests passing (`npm test`).",
+  "check": "node --test",
+  "tags": ["feature", "javascript", "tests"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

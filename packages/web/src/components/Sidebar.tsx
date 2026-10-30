@@ -17,7 +17,7 @@ const clickable = (fn: () => void) => ({
 });
 
 export function Sidebar() {
-  const { projects, threads, projectId, threadId, selectProject, selectThread, openModal, loadProjects, loadThreads, notify, caps, settings } = useStore();
+  const { projects, projectsLoaded, threads, projectId, threadId, selectProject, selectThread, openModal, loadProjects, loadThreads, notify, caps, settings } = useStore();
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId);
 
   const newThread = async (pid: string) => {
@@ -52,7 +52,7 @@ export function Sidebar() {
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {projects.length === 0 && <p className="px-2 py-4 text-xs text-zinc-500">No projects yet. Open a local folder, create a new project or clone a Git repo.</p>}
+        {projectsLoaded && projects.length === 0 && <p className="px-2 py-4 text-xs text-zinc-500">No projects yet. Open a local folder, create a new project or clone a Git repo.</p>}
         {projects.map((p) => {
           const open = p.id === projectId;
           const list = threads[p.id] ?? [];

@@ -1,0 +1,8 @@
+{
+  "title": "Build a small command-line tool from scratch (Python)",
+  "prompt": "Create a command-line tool `wordfreq.py` in this folder using only the Python 3 standard library.\n\nUsage: `python wordfreq.py FILE [--top N]`\n\n- It counts the words in FILE. Counting is case-insensitive (output words in lowercase). A word is a run of letters, digits or apostrophes, so \"don't\" is one word.\n- It prints the N most frequent words (default 10), one per line, formatted as `<word> <count>`, sorted by count (highest first) and then alphabetically (plain string order, so digits come before letters).\n- If FILE does not exist, it prints an error message to stderr and exits with status 1.\n\nAlso write unit tests in `test_wordfreq.py` (unittest) and make sure they pass.",
+  "check": "{python} -m unittest test_hidden_wordfreq -v",
+  "tags": ["greenfield", "python", "cli"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

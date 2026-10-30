@@ -21,6 +21,16 @@ interface TaskSpec extends EvalTaskInfo {
   maxSteps?: number;
 }
 
+let pythonCmd: string | undefined;
+/** `python` on Windows, often only `python3` on Linux/macOS. */
+async function python(): Promise<string> {
+  if (!pythonCmd) {
+    const r = await execCommand('python --version', { cwd: process.cwd(), timeoutMs: 15_000 }).catch(() => null);
+    pythonCmd = r?.exitCode === 0 && /Python 3/.test(r.output) ? 'python' : 'python3';
+  }
+  return pythonCmd;
+}
+
 export function listTasks(): TaskSpec[] {
   if (!fs.existsSync(TASKS_DIR)) return [];
   return fs
@@ -120,7 +130,8 @@ async function runTask(t: TaskSpec, settings: Settings, reportId: string, log: (
     if (fs.existsSync(path.join(src, 'checks'))) fs.cpSync(path.join(src, 'checks'), ws, { recursive: true, force: true });
     let out = '';
     let passed = true;
-    for (const c of t.checks) {
+    for (const raw of t.checks) {
+      const c = raw.replaceAll('{python}', await python());
       const cr = await execCommand(c, { cwd: ws, timeoutMs: 120_000 });
       out += `$ ${c}\n${cr.output.trim()}\n[exit ${cr.exitCode}]\n`;
       if (cr.exitCode !== 0) {

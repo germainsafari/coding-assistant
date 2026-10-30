@@ -81,6 +81,7 @@ export async function languageToolCheck(text: string, language = 'auto') {
       replacements: (m.replacements ?? []).slice(0, 3).map((r: any) => r.value as string),
       rule: m.rule?.id as string,
       category: m.rule?.category?.name as string,
+      categoryId: m.rule?.category?.id as string,
     })),
   };
 }

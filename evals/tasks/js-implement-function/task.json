@@ -1,0 +1,8 @@
+{
+  "title": "Implement a function from its specification and test it (JavaScript)",
+  "prompt": "Implement `slugify` in src/slugify.js exactly as described in its doc comment. Then add tests for it in test/slugify.test.mjs using the built-in `node:test` runner and make sure `npm test` passes.",
+  "check": "node --test",
+  "tags": ["implement", "javascript", "tests"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

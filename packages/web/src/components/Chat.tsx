@@ -27,12 +27,13 @@ import { Markdown } from './Markdown';
 import { Badge, Button, Empty, IconButton, Spinner } from './ui';
 
 export function Chat() {
-  const { projectId, threadId, projects, threads, toggleRight, rightOpen, openModal } = useStore();
+  const { projectId, threadId, projects, projectsLoaded, threads, toggleRight, rightOpen, openModal } = useStore();
   const project = projects.find((p) => p.id === projectId);
   const thread = projectId ? threads[projectId]?.find((t) => t.id === threadId) : undefined;
   const { state, attach, reload } = useThread(threadId);
   const running = state.live.status === 'running';
 
+  if (!projectsLoaded) return <div className="h-full" />;
   if (!project) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
@@ -182,8 +183,8 @@ function HarnessNote({ m }: { m: ChatMessage }) {
   const first = m.content.replace(/^\[harness\]\s*/, '').split('\n')[0];
   return (
     <div className="text-xs text-zinc-500">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 hover:text-zinc-300">
-        <Sparkles className="h-3 w-3" /> <span className="max-w-[60ch] truncate">harness: {first}</span>
+      <button onClick={() => setOpen(!open)} className="flex max-w-full items-center gap-1.5 hover:text-zinc-300">
+        <Sparkles className="h-3 w-3 shrink-0" /> <span className="max-w-[60ch] min-w-0 truncate">harness: {first}</span>
       </button>
       {open && <pre className="mt-1 ml-5 max-h-60 overflow-auto rounded bg-zinc-900 p-2 font-mono text-[11px] whitespace-pre-wrap">{m.content}</pre>}
     </div>

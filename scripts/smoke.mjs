@@ -1,14 +1,16 @@
 // End-to-end smoke test against a running Hearth server and the live model.
-//   node scripts/smoke.mjs [--base http://localhost:3000] [--prompt "..."] [--long-run] [--done "npm test"]
-// Creates a scratch project, starts a run, streams the events to the console and
-// prints a summary. Exit code 0 when the run completes.
+//   node scripts/smoke.mjs [--base http://127.0.0.1:3000] [--prompt "..."] [--long-run] [--done "npm test"]
+//                          [--profile <profile id or name>] [--dir <existing folder to use as the project>]
+// Creates a scratch project (or opens --dir), starts a run in full-auto mode,
+// streams the events to the console and prints a summary. Exit code 0 when the run completes.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const get = (f, d) => (args.includes(f) ? args[args.indexOf(f) + 1] : d);
-const BASE = get('--base', 'http://localhost:3000');
+const BASE = get('--base', 'http://127.0.0.1:3000');
+const profileId = get('--profile', undefined);
 const prompt = get(
   '--prompt',
   'Create a Python file hello.py with a function greet(name) that returns "Hello, <name>!" and a __main__ block that prints greet("World"). Then run it with python and tell me the output.',
@@ -23,7 +25,7 @@ async function api(method, p, body) {
   return j;
 }
 
-const dir = path.join(os.tmpdir(), 'hearth-smoke-' + Date.now());
+const dir = path.resolve(get('--dir', path.join(os.tmpdir(), 'hearth-smoke-' + Date.now())));
 fs.mkdirSync(dir, { recursive: true });
 const project = await api('POST', '/api/projects', { mode: 'open', path: dir, name: path.basename(dir) });
 const thread = await api('POST', `/api/projects/${project.id}/threads`, {});
@@ -34,6 +36,7 @@ console.log(`project ${project.id} at ${dir}\nthread ${thread.id}\n> ${prompt}\n
 const t0 = Date.now();
 const { runId } = await api('POST', `/api/threads/${thread.id}/runs`, {
   message: prompt,
+  ...(profileId ? { profileId } : {}),
   ...(longRun ? { longRun: { enabled: true, doneCommand, maxMinutes: 30 } } : {}),
 });
 const res = await fetch(`${BASE}/api/runs/${runId}/events`);
@@ -67,7 +70,9 @@ outer: for (;;) {
       console.log(`[tool] ${e.call.name} ${JSON.stringify(e.call.arguments).slice(0, 200)}`);
     } else if (e.type === 'tool_call_finished') console.log(`[result ${e.message.meta?.ok ? 'ok' : 'FAIL'}] ${e.message.content.slice(0, 300).replace(/\n/g, ' | ')}`);
     else if (e.type === 'usage') console.log(`[usage] prompt=${e.promptTokens} completion=${e.completionTokens} tok/s=${e.tokensPerSec}`);
-    else if (e.type === 'notice' || e.type === 'error' || e.type === 'context_compacted' || e.type === 'plan_updated') console.log(`[${e.type}]`, JSON.stringify(e).slice(0, 400));
+    else if (e.type === 'notice' || e.type === 'error' || e.type === 'context_compacted' || e.type === 'plan_updated' || e.type === 'verification') console.log(`[${e.type}]`, JSON.stringify(e).slice(0, 400));
+    else if (e.type === 'subagent_event' && ['tool_call_started', 'run_finished'].includes(e.event.type))
+      console.log(`  [subagent ${e.event.type}] ${JSON.stringify(e.event.call ?? e.event.status).slice(0, 200)}`);
     else if (e.type === 'run_finished') {
       status = e.status;
       console.log(`\n[run_finished] ${e.status} ${e.error ?? ''}`);

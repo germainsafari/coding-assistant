@@ -79,7 +79,7 @@ export function workspaceRoutes(app: FastifyInstance) {
   app.get('/api/projects/:id/git/log', async (req) => G.log(project((req.params as any).id).path, 40));
   app.get('/api/projects/:id/git/branches', async (req) => G.branches(project((req.params as any).id).path));
   app.post('/api/projects/:id/git/init', async (req) => {
-    const r = await G.git(project((req.params as any).id).path, ['init', '-b', 'main']);
+    const r = await G.initRepo(project((req.params as any).id).path);
     return { ok: r.code === 0, output: r.stdout + r.stderr };
   });
   app.post('/api/projects/:id/git/commit', async (req, reply) => {
@@ -130,8 +130,14 @@ export function workspaceRoutes(app: FastifyInstance) {
       try {
         const { languageToolCheck, applyLanguageToolFixes } = await import('../tools/web.ts');
         const lt = await languageToolCheck(text, 'en-US');
-        // only apply spelling/grammar fixes that don't touch code-ish tokens
-        const safe = lt.matches.filter((m: any) => m.category !== 'Typography' && !/[`_()/:]/.test(text.slice(m.offset, m.offset + m.length)) && m.rule !== 'UPPERCASE_SENTENCE_START');
+        // Spelling rules mangle identifiers, scopes and file names, so only grammar fixes away from code-ish tokens are applied.
+        const safe = lt.matches.filter(
+          (m: any) =>
+            m.categoryId !== 'TYPOS' &&
+            m.categoryId !== 'TYPOGRAPHY' &&
+            m.rule !== 'UPPERCASE_SENTENCE_START' &&
+            !/[`_()/:.]/.test(text.slice(Math.max(0, m.offset - 1), m.offset + m.length + 1).replace(/\.$/, '')),
+        );
         issues = safe.length;
         text = applyLanguageToolFixes(text, safe);
       } catch {}

@@ -57,12 +57,12 @@ export function Modal({ title, onClose, children, wide, footer }: { title: React
 
 export function Tabs<T extends string>({ tabs, value, onChange, className = '' }: { tabs: { id: T; label: ReactNode }[]; value: T; onChange: (t: T) => void; className?: string }) {
   return (
-    <div className={`flex gap-1 ${className}`}>
+    <div className={`flex gap-1 overflow-x-auto [scrollbar-width:none] ${className}`}>
       {tabs.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${value === t.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-md whitespace-nowrap px-2.5 py-1 text-xs font-medium transition-colors ${value === t.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'}`}
         >
           {t.label}
         </button>

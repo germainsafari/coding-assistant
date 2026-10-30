@@ -33,6 +33,7 @@ interface State {
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Partial<PublicSettings>) => Promise<void>;
   probe: (force?: boolean) => Promise<void>;
+  projectsLoaded: boolean;
   loadProjects: () => Promise<void>;
   loadThreads: (projectId: string) => Promise<void>;
   selectProject: (id: string | null) => void;
@@ -49,6 +50,7 @@ export const useStore = create<State>((set, get) => ({
   settings: null,
   caps: null,
   projects: [],
+  projectsLoaded: false,
   threads: {},
   projectId: saved.projectId ?? null,
   threadId: saved.threadId ?? null,
@@ -77,7 +79,7 @@ export const useStore = create<State>((set, get) => ({
   },
   async loadProjects() {
     const projects = await api.projects();
-    set({ projects });
+    set({ projects, projectsLoaded: true });
     const { projectId } = get();
     if (projectId && !projects.some((p) => p.id === projectId)) get().selectProject(projects[0]?.id ?? null);
     else if (!projectId && projects[0]) get().selectProject(projects[0].id);

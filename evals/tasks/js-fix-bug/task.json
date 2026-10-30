@@ -1,0 +1,8 @@
+{
+  "title": "Fix two bugs across files without touching the tests (JavaScript)",
+  "prompt": "The test suite (`npm test`, which runs `node --test`) is failing. Find and fix the bugs in the source code under src/. Do not modify any test files.",
+  "check": "node --test",
+  "tags": ["bugfix", "javascript", "multi-file"],
+  "timeoutSec": 600,
+  "maxSteps": 30
+}

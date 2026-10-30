@@ -1,0 +1,91 @@
+# Hearth with Docker Compose.
+#
+#   docker compose up -d --build                         # just Hearth (model server + LanguageTool already running)
+#   docker compose --profile languagetool up -d --build  # + LanguageTool on :8081
+#   docker compose --profile vllm --profile languagetool up -d --build   # + vLLM on :8080 (NVIDIA GPU)
+#   docker compose --profile observability up -d         # + Jaeger UI on :16686 for OpenTelemetry traces
+#
+# Then open http://127.0.0.1:3000. Configuration comes from .env (see .env.example).
+# Hearth reaches the model server and LanguageTool through host ports, so the same
+# settings work whether they run in this compose project or were started separately.
+
+name: hearth
+
+services:
+  hearth:
+    build: .
+    image: hearth:local
+    ports:
+      # Bound to localhost only: Hearth has no login and can run commands.
+      - "127.0.0.1:${HEARTH_PORT:-3000}:3000"
+    environment:
+      HEARTH_LLM_BASE_URL: ${HEARTH_LLM_BASE_URL_DOCKER:-http://host.docker.internal:8080/v1}
+      HEARTH_LLM_MODEL: ${HEARTH_LLM_MODEL:-qwen3.6-35b-a3b}
+      HEARTH_LLM_API_KEY: ${HEARTH_LLM_API_KEY:-local}
+      HEARTH_LANGUAGETOOL_URL: ${HEARTH_LANGUAGETOOL_URL_DOCKER:-http://host.docker.internal:8081}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - hearth-data:/data
+      # Your projects. Create/clone projects under /workspace in the UI.
+      - ${HEARTH_WORKSPACE:-./workspace}:/workspace
+    restart: unless-stopped
+
+  languagetool:
+    profiles: ["languagetool"]
+    image: meyay/languagetool:latest
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      download_ngrams_for_langs: en
+      Java_Xmx: 2g
+    volumes:
+      - languagetool-ngrams:/ngrams
+    restart: unless-stopped
+
+  vllm:
+    profiles: ["vllm"]
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    entrypoint: ["vllm", "serve"]
+    ipc: host
+    ports:
+      - "127.0.0.1:8080:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Defaults match the tested setup (RTX 5090, 32 GB). See docs/setup-guide.md for other GPUs.
+    command: >
+      ${VLLM_MODEL:-nvidia/Qwen3.6-35B-A3B-NVFP4}
+      --served-model-name ${HEARTH_LLM_MODEL:-qwen3.6-35b-a3b}
+      ${VLLM_EXTRA_ARGS:---quantization modelopt}
+      --max-model-len ${VLLM_MAX_MODEL_LEN:-65536}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.88}
+      --enable-auto-tool-choice --tool-call-parser qwen3_coder
+      --reasoning-parser qwen3
+      --kv-cache-dtype fp8
+      --enable-prefix-caching
+    restart: unless-stopped
+
+  jaeger:
+    profiles: ["observability"]
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:4318:4318"   # OTLP/HTTP (set Settings → Agent → OTLP endpoint to http://host.docker.internal:4318/v1/traces when Hearth runs in Docker)
+    restart: unless-stopped
+
+volumes:
+  hearth-data:
+  hf-cache:
+  languagetool-ngrams:

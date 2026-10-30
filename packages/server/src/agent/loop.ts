@@ -141,6 +141,7 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
     let planNudges = 0;
     let verifyAttempts = 0;
     let llmRetryUntil = 0;
+    let contextRetries = 0;
 
     for (let step = 1; step <= maxSteps; step++) {
       if (signal.aborted) break;
@@ -210,11 +211,13 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
             continue;
           }
         }
-        if (isContextError(e)) {
+        if (isContextError(e) && contextRetries < 2) {
+          contextRetries++;
           emit({ type: 'notice', level: 'warn', text: 'Prompt exceeded the context window; compacting the conversation.' });
-          await compact(ctxOpts, ctx.estTokens);
-          step--;
-          continue;
+          if (await compact(ctxOpts, ctx.estTokens, Math.floor(ctxOpts.contextLimit * 0.15))) {
+            step--;
+            continue;
+          }
         }
         if (lr && isTransient(e)) {
           // long runs wait (up to 15 min per outage) for the model server to come back
@@ -230,6 +233,7 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
         throw e;
       }
       llmRetryUntil = 0;
+      contextRetries = 0;
       calibrate(ctx.estTokens, res.promptTokens);
       result.promptTokens += res.promptTokens;
       result.completionTokens += res.completionTokens;
