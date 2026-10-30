@@ -81,7 +81,7 @@ async function main() {
         lvl,
         '  Tool calling',
         `${caps.effectiveToolMode} mode (native=${caps.nativeTools}, template=${caps.templateTools}), reasoning=${caps.reasoning}`,
-        'Works, but native tool calling is more reliable. For vLLM add: --enable-auto-tool-choice --tool-call-parser qwen3_coder (see docs/setup-guide.md).',
+        'Template mode works fine. To enable native tool calling (the standard setup) add to vLLM: --enable-auto-tool-choice --tool-call-parser qwen3_coder (see docs/setup-guide.md).',
       );
     }
   }

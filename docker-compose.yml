@@ -46,7 +46,8 @@ services:
 
   vllm:
     profiles: ["vllm"]
-    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    # Tested with the nightly tag (Qwen3.6 NVFP4 support); pin a release tag once one supports your model.
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-nightly}
     entrypoint: ["vllm", "serve"]
     ipc: host
     ports:

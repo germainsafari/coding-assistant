@@ -63,6 +63,12 @@ await clickText('Git');
 await page.waitForTimeout(1200);
 await shot('git.png');
 
+await clickText('Terminal');
+await page.getByPlaceholder('npm test').fill('git log --oneline -3');
+await page.keyboard.press('Enter');
+await page.getByText(/exit code/).waitFor({ timeout: 15000 }).catch(() => {});
+await shot('terminal.png');
+
 await clickText('Traces');
 await page.waitForTimeout(1200);
 const runRow = page.locator('[data-run-row]').first();
@@ -78,6 +84,7 @@ await shot('settings-models.png');
 for (const [tab, file] of [
   ['Agent', 'settings-agent.png'],
   ['MCP servers', 'settings-mcp.png'],
+  ['Connectors', 'settings-connectors.png'],
   ['Skills', 'settings-skills.png'],
 ]) {
   await page.getByRole('dialog').getByRole('button', { name: tab, exact: true }).click();
