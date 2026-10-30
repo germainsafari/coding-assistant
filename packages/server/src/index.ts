@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { DEV, HOST, PORT, WEB_DIST, getSettings, DATA_DIR } from './config.ts';
@@ -29,10 +30,16 @@ observabilityRoutes(app);
 
 const serveStatic = fs.existsSync(WEB_DIST) && !DEV;
 if (serveStatic) {
-  await app.register(fastifyStatic, { root: WEB_DIST, prefix: '/', wildcard: false });
+  await app.register(fastifyStatic, {
+    root: WEB_DIST,
+    prefix: '/',
+    setHeaders: (res, filePath) => {
+      res.header('Cache-Control', filePath.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache');
+    },
+  });
   app.setNotFoundHandler((req, reply) => {
-    if (req.url.startsWith('/api/')) return reply.code(404).send({ error: 'not found' });
-    return reply.sendFile('index.html');
+    if (req.url.startsWith('/api/') || req.url.startsWith('/assets/')) return reply.code(404).send({ error: 'not found' });
+    return reply.header('Cache-Control', 'no-cache').sendFile('index.html');
   });
 }
 

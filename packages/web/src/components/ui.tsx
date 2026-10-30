@@ -41,7 +41,7 @@ export function Modal({ title, onClose, children, wide, footer }: { title: React
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl ${wide ? 'max-w-5xl' : 'max-w-xl'}`}>
+      <div role="dialog" aria-modal="true" className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl ${wide ? 'max-w-5xl' : 'max-w-xl'}`}>
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
           <IconButton title="Close" onClick={onClose}>

@@ -3,6 +3,19 @@ import { api } from '../api';
 import { errText, useStore } from '../store';
 import { IconButton } from './ui';
 
+// Rows contain nested buttons, so they can't be <button>s themselves.
+const clickable = (fn: () => void) => ({
+  role: 'button' as const,
+  tabIndex: 0,
+  onClick: fn,
+  onKeyDown: (e: React.KeyboardEvent) => {
+    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      fn();
+    }
+  },
+});
+
 export function Sidebar() {
   const { projects, threads, projectId, threadId, selectProject, selectThread, openModal, loadProjects, loadThreads, notify, caps, settings } = useStore();
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId);
@@ -47,7 +60,8 @@ export function Sidebar() {
             <div key={p.id} className="mb-1">
               <div
                 className={`group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-sm ${open ? 'bg-zinc-800/70 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800/40'}`}
-                onClick={() => selectProject(p.id)}
+                {...clickable(() => selectProject(p.id))}
+                aria-label={p.name}
                 title={p.path}
               >
                 {open ? <ChevronDown className="h-3.5 w-3.5 text-zinc-500" /> : <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />}
@@ -88,7 +102,8 @@ export function Sidebar() {
                   {list.map((t) => (
                     <div
                       key={t.id}
-                      onClick={() => selectThread(t.id)}
+                      {...clickable(() => selectThread(t.id))}
+                      aria-label={t.title}
                       className={`group/t flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[13px] ${t.id === threadId ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
                       title={t.title}
                     >

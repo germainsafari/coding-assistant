@@ -55,7 +55,7 @@ function Runs() {
         {runs === null && <div className="p-4"><Spinner /></div>}
         {runs?.length === 0 && <div className="p-4 text-xs text-zinc-500">No runs yet. Every agent run is recorded here with its LLM and tool calls.</div>}
         {runs?.map((r) => (
-          <button key={r.id} onClick={() => setSel(r.id)} className="block w-full border-b border-zinc-900 px-3 py-2 text-left hover:bg-zinc-900">
+          <button key={r.id} data-run-row onClick={() => setSel(r.id)} className="block w-full border-b border-zinc-900 px-3 py-2 text-left hover:bg-zinc-900">
             <div className="flex items-center gap-2">
               <Badge tone={statusTone(r.status)}>{r.status}</Badge>
               {r.options?.longRun?.enabled && <Badge tone="orange">long-run</Badge>}

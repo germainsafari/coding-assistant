@@ -98,9 +98,10 @@ function ResumeBanner({ status, error, threadId, onStarted }: { status: string; 
 }
 
 function PlanPanel({ todos }: { todos: TodoItem[] }) {
-  const [open, setOpen] = useState(true);
+  const [userOpen, setOpen] = useState<boolean | null>(null);
   if (!todos.length) return null;
   const done = todos.filter((t) => t.status === 'completed').length;
+  const open = userOpen ?? done < todos.length;
   return (
     <div className="sticky top-0 z-10 mb-3 rounded-lg border border-zinc-800 bg-zinc-900/95 backdrop-blur">
       <button className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-zinc-300" onClick={() => setOpen(!open)}>
@@ -115,7 +116,7 @@ function PlanPanel({ todos }: { todos: TodoItem[] }) {
         <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
-        <ul className="space-y-1 px-3 pb-2">
+        <ul className="max-h-[30vh] space-y-1 overflow-y-auto px-3 pb-2">
           {todos.map((t) => (
             <li key={t.id} className={`flex items-start gap-2 text-[13px] ${t.status === 'completed' ? 'text-zinc-500 line-through' : t.status === 'in_progress' ? 'text-zinc-100' : t.status === 'cancelled' ? 'text-zinc-600 line-through' : 'text-zinc-300'}`}>
               {t.status === 'completed' ? (
@@ -396,9 +397,9 @@ function Composer({ projectId, running, live, onStarted, reload }: { projectId: 
             min
           </div>
         )}
-        <div className="flex items-center gap-1.5 px-2 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
           <select
-            className="max-w-44 border-zinc-800 bg-zinc-900 text-xs"
+            className="max-w-44 min-w-0 border-zinc-800 bg-zinc-900 text-xs"
             value={settings?.activeProfileId ?? ''}
             onChange={(e) => saveSettings({ activeProfileId: e.target.value })}
             title={caps?.reachable ? `Tool mode: ${caps.effectiveToolMode} · context ${caps.maxModelLen ?? '?'}` : caps?.error ?? ''}
@@ -410,7 +411,7 @@ function Composer({ projectId, running, live, onStarted, reload }: { projectId: 
             ))}
           </select>
           <select
-            className="border-zinc-800 bg-zinc-900 text-xs"
+            className="max-w-48 min-w-0 border-zinc-800 bg-zinc-900 text-xs"
             value={settings?.approvalMode ?? 'auto-edit'}
             onChange={(e) => saveSettings({ approvalMode: e.target.value as ApprovalMode })}
             title="Approval mode: what the agent may do without asking"

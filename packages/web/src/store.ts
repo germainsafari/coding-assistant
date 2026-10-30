@@ -81,6 +81,7 @@ export const useStore = create<State>((set, get) => ({
     const { projectId } = get();
     if (projectId && !projects.some((p) => p.id === projectId)) get().selectProject(projects[0]?.id ?? null);
     else if (!projectId && projects[0]) get().selectProject(projects[0].id);
+    else if (projectId) await get().loadThreads(projectId);
   },
   async loadThreads(projectId) {
     const list = await api.threads(projectId);
