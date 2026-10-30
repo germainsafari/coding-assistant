@@ -1,0 +1,31 @@
+{
+  "name": "@hearth/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --disable-warning=ExperimentalWarning --clear-screen=false --exclude \"../../data/**\" --exclude \"../../evals/**\" src/index.ts --dev",
+    "start": "tsx --disable-warning=ExperimentalWarning src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --disable-warning=ExperimentalWarning --import tsx --test \"src/**/*.test.ts\"",
+    "eval": "tsx --disable-warning=ExperimentalWarning src/evals/cli.ts",
+    "doctor": "tsx --disable-warning=ExperimentalWarning src/doctor.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.8",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@octokit/rest": "^22.0.1",
+    "diff": "^9.0.0",
+    "fast-glob": "^3.3.3",
+    "fastify": "^5.12.7",
+    "playwright": "^1.64.1",
+    "turndown": "^7.2.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/turndown": "^5.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

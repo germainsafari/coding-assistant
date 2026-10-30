@@ -1,0 +1,28 @@
+{
+  "name": "hearth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hearth: a free, open-source, fully local AI coding agent (web app) for your own GPU.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c cyan,magenta \"npm:dev -w @hearth/server\" \"npm:dev -w @hearth/web\"",
+    "build": "npm run build -w @hearth/web",
+    "start": "npm run build && npm run start -w @hearth/server",
+    "start:only": "npm run start -w @hearth/server",
+    "typecheck": "npm run typecheck -w @hearth/shared && npm run typecheck -w @hearth/server && npm run typecheck -w @hearth/web",
+    "test": "npm run test -w @hearth/server",
+    "eval": "npm run eval -w @hearth/server --",
+    "doctor": "npm run doctor -w @hearth/server",
+    "setup:browser": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
