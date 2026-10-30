@@ -92,7 +92,8 @@ export function getSettings(): Settings {
   let fromFile: any = {};
   if (fs.existsSync(SETTINGS_PATH)) {
     try {
-      fromFile = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
+      // Windows editors (Notepad, PowerShell 5 `Set-Content -Encoding utf8`) prepend a BOM.
+      fromFile = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8').replace(/^\uFEFF/, ''));
     } catch (e) {
       console.error('[settings] could not parse settings.json, using defaults', e);
     }
