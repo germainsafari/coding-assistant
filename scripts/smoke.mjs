@@ -1,5 +1,5 @@
 // End-to-end smoke test against a running Hearth server and the live model.
-//   node scripts/smoke.mjs [--base http://127.0.0.1:3000] [--prompt "..."] [--long-run] [--done "npm test"]
+//   node scripts/smoke.mjs [--base http://localhost:4545] [--prompt "..."] [--long-run] [--done "npm test"]
 //                          [--profile <profile id or name>] [--dir <existing folder to use as the project>]
 // Creates a scratch project (or opens --dir), starts a run in full-auto mode,
 // streams the events to the console and prints a summary. Exit code 0 when the run completes.
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const get = (f, d) => (args.includes(f) ? args[args.indexOf(f) + 1] : d);
-const BASE = get('--base', 'http://127.0.0.1:3000');
+const BASE = get('--base', 'http://localhost:4545');
 const profileId = get('--profile', undefined);
 const prompt = get(
   '--prompt',

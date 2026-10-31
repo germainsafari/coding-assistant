@@ -21,11 +21,11 @@ COPY . .
 RUN npm run build
 
 ENV HEARTH_HOST=0.0.0.0 \
-    HEARTH_PORT=3000 \
+    HEARTH_PORT=4545 \
     HEARTH_DATA_DIR=/data \
     HEARTH_PROJECTS_DIR=/workspace \
     GIT_AUTHOR_NAME=Hearth GIT_AUTHOR_EMAIL=hearth@localhost \
     GIT_COMMITTER_NAME=Hearth GIT_COMMITTER_EMAIL=hearth@localhost
 VOLUME ["/data", "/workspace"]
-EXPOSE 3000
+EXPOSE 4545
 CMD ["npm", "run", "start:only"]

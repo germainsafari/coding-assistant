@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { api, type McpStatus } from '../../api';
 import { errText, useStore } from '../../store';
-import { Badge, Button, Spinner } from '../ui';
+import { Badge, Button, Empty, Skeleton, Spinner } from '../ui';
 
 const TEMPLATES: Record<string, Record<string, unknown>> = {
   filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', 'C:/Users/me/Documents'] },
@@ -16,8 +16,12 @@ const TEMPLATES: Record<string, Record<string, unknown>> = {
   'remote-http-example': { url: 'https://example.com/mcp', headers: { Authorization: 'Bearer <token>' }, disabled: true },
 };
 
+const statusTone = (s: string) => (s === 'connected' ? 'ok' : s === 'disabled' ? 'neutral' : s === 'error' ? 'danger' : 'warn');
+
 export function McpTab() {
-  const { settings, saveSettings, notify } = useStore();
+  const settings = useStore((s) => s.settings);
+  const saveSettings = useStore((s) => s.saveSettings);
+  const notify = useStore((s) => s.notify);
   const [text, setText] = useState('');
   const [status, setStatus] = useState<McpStatus[] | null>(null);
   const [err, setErr] = useState('');
@@ -40,7 +44,7 @@ export function McpTab() {
       setErr('');
       await saveSettings({ mcpServers: servers as never });
       setStatus(await api.reloadMcp());
-      notify('MCP servers saved and reconnected');
+      notify('MCP servers saved and reconnected', 'success');
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -58,44 +62,59 @@ export function McpTab() {
 
   return (
     <div className="grid h-full grid-cols-5">
-      <div className="col-span-3 flex flex-col gap-2 border-r border-zinc-800 p-4">
-        <p className="text-xs text-zinc-400">
-          Same format as Cursor / Claude Desktop <code>mcpServers</code>. Stdio servers use <code>command/args/env</code>; remote servers use <code>url/headers</code> (Streamable HTTP, falls back to SSE). Tools appear to the agent as <code>mcp__server__tool</code>. Add{' '}
-          <code>"autoApprove": true</code> to skip approval prompts for a trusted server.
+      <div className="col-span-3 flex min-h-0 flex-col gap-3 border-r border-line p-5">
+        <p className="text-xs leading-relaxed text-fg-muted">
+          Same format as Cursor and Claude Desktop <code className="font-mono text-fg">mcpServers</code>. Stdio servers use <code className="font-mono text-fg">command / args / env</code>; remote servers use <code className="font-mono text-fg">url / headers</code> (Streamable HTTP, with SSE fallback). Tools appear to the agent as{' '}
+          <code className="font-mono text-fg">mcp__server__tool</code>. Add <code className="font-mono text-fg">"autoApprove": true</code> to skip approvals for a trusted server.
         </p>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">Templates</span>
           {Object.keys(TEMPLATES).map((k) => (
-            <Button key={k} size="sm" variant="ghost" onClick={() => addTemplate(k)}>
-              + {k}
+            <Button key={k} size="xs" onClick={() => addTemplate(k)}>
+              <Plus className="h-3 w-3" /> {k}
             </Button>
           ))}
         </div>
-        <textarea className="min-h-0 flex-1 resize-none font-mono text-xs" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} />
-        {err && <div className="text-xs text-rose-400">{err}</div>}
+        <textarea className="min-h-0 flex-1 resize-none bg-code font-mono text-xs leading-relaxed" spellCheck={false} aria-label="MCP servers JSON" value={text} onChange={(e) => setText(e.target.value)} />
+        {err && <div className="rounded-lg border border-danger/30 bg-danger/[0.07] px-3 py-2 text-xs text-danger-ink">{err}</div>}
         <div>
           <Button variant="primary" disabled={busy} onClick={save}>
-            {busy && <Spinner className="h-3.5 w-3.5 text-white" />} Save & connect
+            {busy && <Spinner className="h-3.5 w-3.5 text-primary-fg" />} Save & connect
           </Button>
         </div>
       </div>
-      <div className="col-span-2 space-y-2 overflow-auto p-4">
+      <div className="col-span-2 space-y-2 overflow-auto p-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-200">Status</h3>
-          <Button size="sm" variant="ghost" onClick={async () => setStatus(await api.reloadMcp())}>
-            <RefreshCw className="h-3.5 w-3.5" /> Reconnect
+          <h3 className="text-[13px] font-semibold text-fg">Status</h3>
+          <Button size="xs" variant="ghost" onClick={async () => setStatus(await api.reloadMcp())}>
+            <RefreshCw className="h-3 w-3" /> Reconnect
           </Button>
         </div>
-        {status === null && <Spinner />}
-        {status?.length === 0 && <div className="text-xs text-zinc-500">No MCP servers configured.</div>}
+        {status === null && <Skeleton className="h-16" />}
+        {status?.length === 0 && (
+          <Empty title="No MCP servers yet" className="h-auto rounded-xl border border-dashed border-line-strong py-8">
+            Add a template on the left, then save.
+          </Empty>
+        )}
         {status?.map((s) => (
-          <div key={s.name} className="rounded-md border border-zinc-800 p-2 text-xs">
+          <div key={s.name} className="rounded-xl border border-line bg-surface p-3 text-xs shadow-card">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-zinc-200">{s.name}</span>
-              <Badge tone={s.status === 'connected' ? 'green' : s.status === 'disabled' ? 'zinc' : s.status === 'error' ? 'red' : 'amber'}>{s.status}</Badge>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">{s.name}</span>
+              <Badge tone={statusTone(s.status)} dot>
+                {s.status}
+              </Badge>
               <Badge>{s.transport}</Badge>
             </div>
-            {s.error && <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-rose-300">{s.error}</pre>}
-            {s.tools.length > 0 && <div className="mt-1 text-zinc-500">{s.tools.map((t) => t.name).join(', ')}</div>}
+            {s.error && <pre className="mt-2 max-h-24 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-danger-ink">{s.error}</pre>}
+            {s.tools.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {s.tools.map((t) => (
+                  <span key={t.name} title={t.description} className="rounded border border-line bg-raised px-1.5 py-px font-mono text-[10.5px] text-fg-muted">
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { DEV, HOST, PORT, WEB_DIST, getSettings, DATA_DIR } from './config.ts';
+import { DEFAULT_PORT, DEV, HOST, PORT, WEB_DIST, getSettings, DATA_DIR, isLoopbackHost } from './config.ts';
 import { markInterruptedRuns } from './db.ts';
 import { coreRoutes } from './routes/core.ts';
 import { workspaceRoutes } from './routes/workspace.ts';
@@ -47,16 +47,17 @@ try {
   await app.listen({ port: PORT, host: HOST });
 } catch (e: any) {
   if (e?.code === 'EADDRINUSE') {
-    console.error(`\n  ✖ Port ${PORT} on ${HOST} is already in use by another program.\n    Stop it, or start Hearth on another port, e.g. (PowerShell)  $env:HEARTH_PORT=3005; npm start\n                                                  (bash)        HEARTH_PORT=3005 npm start\n`);
+    const alt = PORT + 10;
+    console.error(`\n  ✖ Port ${PORT} on ${HOST} is already in use by another program.\n    Stop it, or start Hearth on another port, e.g. (PowerShell)  $env:HEARTH_PORT=${alt}; npm start\n                                                  (bash)        HEARTH_PORT=${alt} npm start\n`);
     process.exit(1);
   }
   throw e;
 }
-const shownHost = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+const shownHost = HOST === '0.0.0.0' || HOST === '::' || isLoopbackHost(HOST) ? 'localhost' : HOST.includes(':') ? `[${HOST}]` : HOST;
 const s = getSettings();
 console.log(
   `\n  Hearth server listening on http://${shownHost}:${PORT}` +
-    (serveStatic ? '  (serving web UI)' : DEV ? '  (API only; open the UI at http://localhost:3000)' : '  (API only; run "npm run build" to serve the UI)'),
+    (serveStatic ? '  (serving web UI)' : DEV ? `  (API only; open the UI at http://localhost:${process.env.HEARTH_WEB_PORT || DEFAULT_PORT})` : '  (API only; run "npm run build" to serve the UI)'),
 );
 console.log(`  Data dir: ${DATA_DIR}`);
 console.log(`  Model: ${s.model.model} @ ${s.model.baseUrl}`);
@@ -75,17 +76,19 @@ probeCapabilities(s.model, true)
 void autoResume();
 
 /**
- * Browsers resolve "localhost" to ::1 (IPv6) first. If another program listens on
- * [::]:PORT while we bind 127.0.0.1, http://localhost:PORT silently shows that app.
+ * Browsers may resolve "localhost" to either ::1 or 127.0.0.1. Fastify silently skips a
+ * loopback address it can't bind, so if another program holds the other one,
+ * http://localhost:PORT can show that program instead of Hearth.
  */
 async function warnIfLocalhostShadowed() {
-  if (HOST !== '127.0.0.1') return;
-  try {
-    const r = await fetch(`http://[::1]:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) });
-    const j: any = await r.json().catch(() => null);
-    if (j?.name !== 'hearth')
-      console.warn(`  ⚠ Another program answers on http://localhost:${PORT} (IPv6). Open Hearth at http://127.0.0.1:${PORT} instead, or set HEARTH_PORT to a free port.`);
-  } catch {}
+  if (!isLoopbackHost(HOST)) return;
+  for (const addr of ['127.0.0.1', '[::1]']) {
+    try {
+      const r = await fetch(`http://${addr}:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) });
+      const j: any = await r.json().catch(() => null);
+      if (j?.name !== 'hearth') console.warn(`  ⚠ Another program answers on http://${addr}:${PORT}, so http://localhost:${PORT} may not reach Hearth. Set HEARTH_PORT to a free port.`);
+    } catch {}
+  }
 }
 
 /** Resume long-run tasks that were interrupted by a crash/restart (checkpoint resume). */

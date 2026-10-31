@@ -15,10 +15,13 @@ export const BUILTIN_SKILLS_DIR = path.join(APP_ROOT, 'skills');
 export const USER_SKILLS_DIR = path.join(DATA_DIR, 'skills');
 export const EVALS_DIR = path.join(APP_ROOT, 'evals');
 export const WEB_DIST = path.join(APP_ROOT, 'packages', 'web', 'dist');
-/** `--dev`: API only (the Vite dev server on :3000 proxies /api to us on :3001). */
+/** `--dev`: API only (the Vite dev server on :4545 proxies /api to us on :4546). */
 export const DEV = process.argv.includes('--dev');
-export const PORT = Number(process.env.HEARTH_PORT || (DEV ? 3001 : 3000));
-export const HOST = process.env.HEARTH_HOST || '127.0.0.1';
+export const DEFAULT_PORT = 4545;
+export const PORT = Number(process.env.HEARTH_PORT || (DEV ? DEFAULT_PORT + 1 : DEFAULT_PORT));
+/** "localhost" binds every loopback address (127.0.0.1 and ::1), so http://localhost:PORT works whichever one the browser picks. */
+export const HOST = process.env.HEARTH_HOST || 'localhost';
+export const isLoopbackHost = (h: string) => h === 'localhost' || h === '127.0.0.1' || h === '::1';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 

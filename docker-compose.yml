@@ -5,7 +5,7 @@
 #   docker compose --profile vllm --profile languagetool up -d --build   # + vLLM on :8080 (NVIDIA GPU)
 #   docker compose --profile observability up -d         # + Jaeger UI on :16686 for OpenTelemetry traces
 #
-# Then open http://127.0.0.1:3000. Configuration comes from .env (see .env.example).
+# Then open http://localhost:4545. Configuration comes from .env (see .env.example).
 # Hearth reaches the model server and LanguageTool through host ports, so the same
 # settings work whether they run in this compose project or were started separately.
 
@@ -17,7 +17,7 @@ services:
     image: hearth:local
     ports:
       # Bound to localhost only: Hearth has no login and can run commands.
-      - "127.0.0.1:${HEARTH_PORT:-3000}:3000"
+      - "127.0.0.1:${HEARTH_PORT:-4545}:4545"
     environment:
       HEARTH_LLM_BASE_URL: ${HEARTH_LLM_BASE_URL_DOCKER:-http://host.docker.internal:8080/v1}
       HEARTH_LLM_MODEL: ${HEARTH_LLM_MODEL:-qwen3.6-35b-a3b}
@@ -68,7 +68,7 @@ services:
       ${VLLM_MODEL:-nvidia/Qwen3.6-35B-A3B-NVFP4}
       --served-model-name ${HEARTH_LLM_MODEL:-qwen3.6-35b-a3b}
       ${VLLM_EXTRA_ARGS:---quantization modelopt}
-      --max-model-len ${VLLM_MAX_MODEL_LEN:-65536}
+      --max-model-len ${VLLM_MAX_MODEL_LEN:-262144}
       --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.88}
       --enable-auto-tool-choice --tool-call-parser qwen3_coder
       --reasoning-parser qwen3

@@ -3,8 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Hearth: local AI coding agent</title>
+    <script>
+      // Apply the saved theme before first paint (no flash). Keep in sync with src/theme.ts.
+      (function () {
+        try {
+          var p = localStorage.getItem('hearth.theme') || 'system';
+          var dark = p === 'dark' || (p === 'system' && !matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

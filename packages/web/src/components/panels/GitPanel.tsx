@@ -3,12 +3,22 @@ import { ExternalLink, GitBranch, GitCommitHorizontal, GitPullRequest, RefreshCw
 import { api, type GitStatus } from '../../api';
 import { errText, useStore } from '../../store';
 import { DiffView } from '../Markdown';
-import { Badge, Button, Empty, IconButton, Spinner, Tabs } from '../ui';
+import { Badge, Button, cx, Empty, IconButton, relTime, Skeleton, Spinner, Tabs, type Tone } from '../ui';
 
-const tone: Record<string, 'green' | 'red' | 'amber' | 'blue' | 'zinc'> = { added: 'green', untracked: 'green', deleted: 'red', modified: 'amber', renamed: 'blue' };
+const statusStyle: Record<string, { tone: Tone; letter: string }> = {
+  added: { tone: 'ok', letter: 'A' },
+  untracked: { tone: 'ok', letter: 'U' },
+  deleted: { tone: 'danger', letter: 'D' },
+  modified: { tone: 'warn', letter: 'M' },
+  renamed: { tone: 'info', letter: 'R' },
+};
+const letterCls: Record<Tone, string> = { ok: 'text-ok-ink', danger: 'text-danger-ink', warn: 'text-warn-ink', info: 'text-info-ink', neutral: 'text-fg-subtle', accent: 'text-accent-ink', violet: 'text-violet' };
 
 export function GitPanel({ projectId }: { projectId: string }) {
-  const { fsVersion, notify, settings, openModal } = useStore();
+  const fsVersion = useStore((s) => s.fsVersion);
+  const notify = useStore((s) => s.notify);
+  const settings = useStore((s) => s.settings);
+  const openModal = useStore((s) => s.openModal);
   const [st, setSt] = useState<GitStatus | null>(null);
   const [tab, setTab] = useState<'changes' | 'history' | 'prs'>('changes');
   const [selected, setSelected] = useState<string | null>(null);
@@ -23,8 +33,9 @@ export function GitPanel({ projectId }: { projectId: string }) {
       const s = await api.gitStatus(projectId);
       setSt(s);
       if (s.isRepo) {
-        setBranches(await api.gitBranches(projectId));
-        setLog(await api.gitLog(projectId));
+        const [b, l] = await Promise.all([api.gitBranches(projectId), api.gitLog(projectId)]);
+        setBranches(b);
+        setLog(l);
       }
     } catch (e) {
       notify(errText(e), 'error');
@@ -39,14 +50,17 @@ export function GitPanel({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     if (!st?.isRepo) return;
-    api.gitDiff(projectId, selected ?? undefined).then((d) => setDiff(d.diff), () => setDiff(''));
+    api.gitDiff(projectId, selected ?? undefined).then(
+      (d) => setDiff(d.diff),
+      () => setDiff(''),
+    );
   }, [projectId, selected, st]);
 
   const act = async (name: string, fn: () => Promise<unknown>, ok?: string) => {
     setBusy(name);
     try {
       await fn();
-      if (ok) notify(ok);
+      if (ok) notify(ok, 'success');
       await refresh();
     } catch (e) {
       notify(errText(e), 'error');
@@ -55,43 +69,52 @@ export function GitPanel({ projectId }: { projectId: string }) {
     }
   };
 
-  if (!st) return <div className="p-6"><Spinner /></div>;
+  if (!st)
+    return (
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-7 w-1/2" />
+        <Skeleton className="h-4" />
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-24" />
+      </div>
+    );
   if (!st.isRepo)
     return (
-      <Empty icon={<GitBranch className="h-8 w-8" />} title="Not a Git repository">
-        <Button className="mt-2" onClick={() => act('init', () => api.gitInit(projectId), 'Initialized Git repository')}>
-          Initialize repository
-        </Button>
+      <Empty icon={<GitBranch />} title="Not a Git repository" action={<Button onClick={() => act('init', () => api.gitInit(projectId), 'Initialized Git repository')}>Initialize repository</Button>}>
+        Track the agent's changes, review diffs and commit with AI-written messages.
       </Empty>
     );
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2">
-        <GitBranch className="h-4 w-4 text-zinc-400" />
-        <select
-          className="text-xs"
-          value={st.branch ?? ''}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === '__new__') {
-              const name = prompt('New branch name');
-              if (name) void act('checkout', () => api.gitCheckout(projectId, name, true), `Switched to new branch ${name}`);
-            } else void act('checkout', () => api.gitCheckout(projectId, v), `Switched to ${v}`);
-          }}
-        >
-          {st.branch && !branches.some((b) => b.name === st.branch) && <option value={st.branch}>{st.branch}</option>}
-          {branches
-            .filter((b) => !b.remote)
-            .map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          <option value="__new__">+ New branch…</option>
-        </select>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <label className="relative flex min-w-0 items-center">
+          <GitBranch className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-fg-subtle" />
+          <select
+            aria-label="Branch"
+            className="h-7 max-w-48 py-0 pl-8 text-xs font-medium"
+            value={st.branch ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__new__') {
+                const name = prompt('New branch name');
+                if (name) void act('checkout', () => api.gitCheckout(projectId, name, true), `Switched to new branch ${name}`);
+              } else void act('checkout', () => api.gitCheckout(projectId, v), `Switched to ${v}`);
+            }}
+          >
+            {st.branch && !branches.some((b) => b.name === st.branch) && <option value={st.branch}>{st.branch}</option>}
+            {branches
+              .filter((b) => !b.remote)
+              .map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            <option value="__new__">+ New branch…</option>
+          </select>
+        </label>
         {st.upstream && (
-          <span className="text-[11px] text-zinc-500">
+          <span className="font-mono text-[11px] text-fg-subtle tabular-nums" title={`Tracking ${st.upstream}`}>
             ↑{st.ahead} ↓{st.behind}
           </span>
         )}
@@ -99,44 +122,77 @@ export function GitPanel({ projectId }: { projectId: string }) {
         <Button size="sm" disabled={!!busy || !st.remote} title={st.remote ? `Push to ${st.remote}` : 'No "origin" remote'} onClick={() => act('push', () => api.gitPush(projectId), 'Pushed')}>
           {busy === 'push' ? <Spinner className="h-3 w-3" /> : <Upload className="h-3.5 w-3.5" />} Push
         </Button>
-        <IconButton title="Refresh" onClick={refresh}>
+        <IconButton label="Refresh" onClick={refresh}>
           <RefreshCw className="h-3.5 w-3.5" />
         </IconButton>
       </div>
-      <div className="shrink-0 border-b border-zinc-800 px-2 py-1.5">
+      <div className="shrink-0 border-b border-line px-3">
         <Tabs
+          variant="underline"
           value={tab}
           onChange={setTab}
+          label="Git views"
           tabs={[
-            { id: 'changes', label: `Changes (${st.files.length})` },
+            {
+              id: 'changes',
+              label: (
+                <>
+                  Changes {st.files.length > 0 && <Badge tone="accent">{st.files.length}</Badge>}
+                </>
+              ),
+            },
             { id: 'history', label: 'History' },
-            { id: 'prs', label: <><GitPullRequest className="h-3.5 w-3.5" /> Pull requests</> },
+            {
+              id: 'prs',
+              label: (
+                <>
+                  <GitPullRequest className="h-3.5 w-3.5" /> Pull requests
+                </>
+              ),
+            },
           ]}
         />
       </div>
       {tab === 'changes' && (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="max-h-48 shrink-0 overflow-auto border-b border-zinc-800">
-            {st.files.length === 0 && <div className="px-3 py-3 text-xs text-zinc-500">Working tree clean.</div>}
-            {st.files.map((f) => (
-              <div key={f.path} className={`group flex cursor-pointer items-center gap-2 px-3 py-1 text-[13px] hover:bg-zinc-800/60 ${selected === f.path ? 'bg-zinc-800' : ''}`} onClick={() => setSelected(selected === f.path ? null : f.path)}>
-                <Badge tone={tone[f.status] ?? 'zinc'}>{f.status[0].toUpperCase()}</Badge>
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-300">{f.path}</span>
-                <button
-                  className="hidden text-zinc-500 group-hover:block hover:text-rose-400"
-                  title="Discard changes"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Discard all changes to ${f.path}?`)) void act('discard', () => api.gitDiscard(projectId, f.path));
-                  }}
+          <div className="max-h-48 shrink-0 overflow-auto border-b border-line py-1">
+            {st.files.length === 0 && <div className="px-3 py-3 text-xs text-fg-subtle">Working tree clean. Nothing to commit.</div>}
+            {st.files.map((f) => {
+              const s = statusStyle[f.status] ?? { tone: 'neutral' as Tone, letter: f.status[0]?.toUpperCase() ?? '?' };
+              const name = f.path.split('/').pop();
+              const dir = f.path.slice(0, f.path.length - (name?.length ?? 0));
+              return (
+                <div
+                  key={f.path}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={selected === f.path}
+                  className={cx('group mx-1.5 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] transition-colors', selected === f.path ? 'bg-raised text-fg' : 'text-fg-muted hover:bg-raised/60')}
+                  onClick={() => setSelected(selected === f.path ? null : f.path)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelected(selected === f.path ? null : f.path)}
+                  title={`${f.status}: ${f.path}`}
                 >
-                  <Undo2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
+                  <span className={cx('w-3 shrink-0 text-center font-mono text-[11px] font-semibold', letterCls[s.tone])}>{s.letter}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-fg">{name}</span> <span className="text-xs text-fg-subtle">{dir}</span>
+                  </span>
+                  <IconButton
+                    label="Discard changes"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Discard all changes to ${f.path}?`)) void act('discard', () => api.gitDiscard(projectId, f.path));
+                    }}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                  </IconButton>
+                </div>
+              );
+            })}
           </div>
-          <div className="shrink-0 space-y-1.5 border-b border-zinc-800 p-2">
-            <textarea className="h-20 w-full resize-none font-mono text-xs" placeholder="Commit message" value={msg} onChange={(e) => setMsg(e.target.value)} />
+          <div className="shrink-0 space-y-2 border-b border-line p-3">
+            <textarea className="h-[72px] w-full resize-none font-mono text-xs leading-relaxed" placeholder="Commit message" aria-label="Commit message" value={msg} onChange={(e) => setMsg(e.target.value)} />
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -150,7 +206,7 @@ export function GitPanel({ projectId }: { projectId: string }) {
                   })
                 }
               >
-                {busy === 'gen' ? <Spinner className="h-3 w-3" /> : <Sparkles className="h-3.5 w-3.5" />} Generate
+                {busy === 'gen' ? <Spinner className="h-3 w-3" /> : <Sparkles className="h-3.5 w-3.5 text-accent-ink" />} Generate message
               </Button>
               <Button
                 size="sm"
@@ -158,30 +214,43 @@ export function GitPanel({ projectId }: { projectId: string }) {
                 className="flex-1"
                 disabled={!!busy || !msg.trim() || !st.files.length}
                 onClick={() =>
-                  act('commit', async () => {
-                    await api.gitCommit(projectId, msg);
-                    setMsg('');
-                  }, 'Committed')
+                  act(
+                    'commit',
+                    async () => {
+                      await api.gitCommit(projectId, msg);
+                      setMsg('');
+                    },
+                    'Committed',
+                  )
                 }
               >
                 <GitCommitHorizontal className="h-3.5 w-3.5" /> Commit all
               </Button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2">{diff ? <DiffView diff={diff} maxHeight="" /> : <div className="p-2 text-xs text-zinc-500">No diff.</div>}</div>
+          <div className="min-h-0 flex-1 overflow-auto p-3">{diff ? <DiffView diff={diff} maxHeight="" /> : <div className="p-2 text-xs text-fg-subtle">No changes to show.</div>}</div>
         </div>
       )}
       {tab === 'history' && (
-        <div className="min-h-0 flex-1 overflow-auto">
-          {log.map((c) => (
-            <div key={c.hash} className="border-b border-zinc-900 px-3 py-1.5">
-              <div className="truncate text-[13px] text-zinc-200">{c.subject}</div>
-              <div className="text-[11px] text-zinc-500">
-                <span className="font-mono">{c.short}</span> · {c.author} · {new Date(c.date).toLocaleString()}
+        <div className="min-h-0 flex-1 overflow-auto py-2">
+          {log.map((c, i) => (
+            <div key={c.hash} className="relative flex gap-3 px-4 py-2">
+              <div className="flex flex-col items-center pt-1.5">
+                <span className={cx('h-2.5 w-2.5 rounded-full border-2', i === 0 ? 'border-accent bg-accent/20' : 'border-line-strong bg-panel')} />
+                {i < log.length - 1 && <span className="mt-1 w-px flex-1 bg-line" />}
+              </div>
+              <div className="min-w-0 flex-1 pb-1">
+                <div className="truncate text-[13px] text-fg">{c.subject}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-fg-subtle">
+                  <span className="rounded border border-line bg-raised px-1 font-mono">{c.short}</span>
+                  <span>{c.author}</span>
+                  <span>·</span>
+                  <span title={new Date(c.date).toLocaleString()}>{relTime(new Date(c.date).getTime())} ago</span>
+                </div>
               </div>
             </div>
           ))}
-          {!log.length && <div className="p-3 text-xs text-zinc-500">No commits yet.</div>}
+          {!log.length && <div className="p-4 text-xs text-fg-subtle">No commits yet.</div>}
         </div>
       )}
       {tab === 'prs' &&
@@ -189,13 +258,21 @@ export function GitPanel({ projectId }: { projectId: string }) {
           st.github ? (
             <PullRequests projectId={projectId} />
           ) : (
-            <Empty title="No GitHub remote">This repository has no github.com "origin" remote.</Empty>
+            <Empty icon={<GitPullRequest />} title="No GitHub remote">
+              This repository has no github.com "origin" remote.
+            </Empty>
           )
         ) : (
-          <Empty title="GitHub not connected">
-            <Button className="mt-2" size="sm" onClick={() => openModal('settings', 'connectors')}>
-              Add a GitHub token
-            </Button>
+          <Empty
+            icon={<GitPullRequest />}
+            title="GitHub not connected"
+            action={
+              <Button size="sm" onClick={() => openModal('settings', 'connectors')}>
+                Add a GitHub token
+              </Button>
+            }
+          >
+            Connect GitHub to list, write and open pull requests from here.
           </Empty>
         ))}
     </div>
@@ -207,7 +284,14 @@ function PullRequests({ projectId }: { projectId: string }) {
   const [prs, setPrs] = useState<Awaited<ReturnType<typeof api.pulls>> | null>(null);
   const [form, setForm] = useState<{ title: string; body: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => api.pulls(projectId).then(setPrs, (e) => (notify(errText(e), 'error'), setPrs([]))), [projectId, notify]);
+  const load = useCallback(
+    () =>
+      api.pulls(projectId).then(setPrs, (e) => {
+        notify(errText(e), 'error');
+        setPrs([]);
+      }),
+    [projectId, notify],
+  );
   useEffect(() => {
     void load();
   }, [load]);
@@ -226,14 +310,14 @@ function PullRequests({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-2">
+    <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
       {form ? (
-        <div className="space-y-2">
-          <input className="w-full text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="PR title" />
-          <textarea className="h-40 w-full font-mono text-xs" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Description (Markdown)" />
+        <div className="space-y-2 rounded-xl border border-line bg-surface p-3 shadow-card">
+          <input className="w-full text-[13px]" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="PR title" aria-label="Pull request title" />
+          <textarea className="h-40 w-full font-mono text-xs" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Description (Markdown)" aria-label="Pull request description" />
           <div className="flex gap-2">
             <Button size="sm" disabled={busy} onClick={generate}>
-              <Sparkles className="h-3.5 w-3.5" /> Generate
+              <Sparkles className="h-3.5 w-3.5 text-accent-ink" /> Generate
             </Button>
             <div className="flex-1" />
             <Button size="sm" variant="ghost" onClick={() => setForm(null)}>
@@ -247,7 +331,7 @@ function PullRequests({ projectId }: { projectId: string }) {
                 setBusy(true);
                 try {
                   const r = await api.createPull(projectId, form);
-                  notify(`Opened PR #${r.number}`);
+                  notify(`Opened PR #${r.number}`, 'success');
                   setForm(null);
                   void load();
                 } catch (e) {
@@ -266,15 +350,19 @@ function PullRequests({ projectId }: { projectId: string }) {
           <GitPullRequest className="h-3.5 w-3.5" /> New pull request
         </Button>
       )}
-      <div className="mt-3 space-y-1">
-        {prs === null && <Spinner />}
-        {prs?.length === 0 && <div className="text-xs text-zinc-500">No open pull requests.</div>}
+      <div className="space-y-1.5">
+        {prs === null && <Skeleton className="h-12" />}
+        {prs?.length === 0 && <div className="text-xs text-fg-subtle">No open pull requests.</div>}
         {prs?.map((p) => (
-          <a key={p.number} href={p.url} target="_blank" rel="noreferrer" className="block rounded-md border border-zinc-800 px-3 py-2 hover:border-zinc-600">
-            <div className="flex items-center gap-2 text-[13px] text-zinc-200">
-              #{p.number} {p.title} {p.draft && <Badge>draft</Badge>} <ExternalLink className="h-3 w-3 text-zinc-500" />
+          <a key={p.number} href={p.url} target="_blank" rel="noreferrer" className="block rounded-xl border border-line bg-surface px-3 py-2.5 shadow-card transition-colors hover:border-line-strong">
+            <div className="flex items-center gap-2 text-[13px] text-fg">
+              <GitPullRequest className="h-3.5 w-3.5 shrink-0 text-ok-ink" />
+              <span className="text-fg-subtle">#{p.number}</span>
+              <span className="min-w-0 flex-1 truncate">{p.title}</span>
+              {p.draft && <Badge>draft</Badge>}
+              <ExternalLink className="h-3 w-3 shrink-0 text-fg-faint" />
             </div>
-            <div className="text-[11px] text-zinc-500">
+            <div className="mt-0.5 pl-5.5 font-mono text-[11px] text-fg-subtle">
               {p.head} → {p.base} · {p.user}
             </div>
           </a>

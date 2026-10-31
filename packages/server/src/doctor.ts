@@ -1,7 +1,7 @@
 // `npm run doctor`: checks everything Hearth needs and explains how to fix what is missing.
 import fs from 'node:fs';
 import net from 'node:net';
-import { DATA_DIR, HOST, PORT, WEB_DIST, getSettings } from './config.ts';
+import { DATA_DIR, HOST, PORT, WEB_DIST, getSettings, isLoopbackHost } from './config.ts';
 import { probeCapabilities } from './llm/client.ts';
 import { execCommand, shellName } from './shell.ts';
 import { errMsg } from './util.ts';
@@ -24,10 +24,11 @@ async function cmd(c: string) {
   }
 }
 
+/** true = free; false = in use. An address this machine doesn't have (no IPv6) counts as free. */
 function portFree(port: number, host: string): Promise<boolean> {
   return new Promise((resolve) => {
     const s = net.createServer();
-    s.once('error', () => resolve(false));
+    s.once('error', (e: NodeJS.ErrnoException) => resolve(e.code === 'EADDRNOTAVAIL' || e.code === 'EAFNOSUPPORT'));
     s.listen(port, host, () => s.close(() => resolve(true)));
   });
 }
@@ -57,8 +58,16 @@ async function main() {
 
   report(fs.existsSync(WEB_DIST) ? 'ok' : 'warn', 'Web UI build', fs.existsSync(WEB_DIST) ? WEB_DIST : 'not built yet', 'Run "npm run build" (or just "npm start", which builds first).');
 
-  const free = await portFree(PORT, HOST);
-  report(free ? 'ok' : 'warn', `Port ${PORT} on ${HOST}`, free ? 'free' : 'in use (Hearth already running, or another program)', `Stop the other program or start Hearth on another port: HEARTH_PORT=3005 npm start (PowerShell: $env:HEARTH_PORT=3005; npm start).`);
+  const hosts = isLoopbackHost(HOST) ? ['127.0.0.1', '::1'] : [HOST];
+  const busy: string[] = [];
+  for (const h of hosts) if (!(await portFree(PORT, h))) busy.push(h.includes(':') ? `[${h}]` : h);
+  const alt = PORT + 10;
+  report(
+    busy.length ? 'warn' : 'ok',
+    `Port ${PORT} on ${isLoopbackHost(HOST) ? 'localhost (IPv4 + IPv6)' : HOST}`,
+    busy.length ? `in use on ${busy.join(' and ')} (Hearth already running, or another program)` : 'free',
+    `Stop the other program or start Hearth on another port: HEARTH_PORT=${alt} npm start (PowerShell: $env:HEARTH_PORT=${alt}; npm start).`,
+  );
 
   for (const p of settings.profiles) {
     const m = { ...settings.model, ...p };
