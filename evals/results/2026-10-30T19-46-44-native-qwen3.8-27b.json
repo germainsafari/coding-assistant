@@ -1,0 +1,85 @@
+{
+  "id": "2026-10-30T19-46-44-native-qwen3.8-27b",
+  "startedAt": 1793389604098,
+  "finishedAt": 1793389994680,
+  "model": "qwen3.8-27b",
+  "profile": "qwen3.8-27b",
+  "thinking": true,
+  "toolMode": "native",
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "js-add-feature",
+      "title": "Add two features to an existing class, with tests (JavaScript)",
+      "passed": true,
+      "durationMs": 22110,
+      "steps": 5,
+      "promptTokens": 30082,
+      "completionTokens": 1173,
+      "toolCalls": 6,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: hidden: remove returns the todo and deletes it\nok 1 - hidden: remove returns the todo and deletes it\n  ---\n  duration_ms: 0.8023\n  type: 'test'\n  ...\n# Subtest: hidden: remove unknown id throws with the id\nok 2 - hidden: remove unknown id throws with the id\n  ---\n  duration_ms: 0.2187\n  type: 'test'\n  ...\n# Subtest: hidden: removed ids are not reused\nok 3 - hidden: removed ids are not reused\n  ---\n  duration_ms: 0.4959\n  type: 'test'\n  ...\n# Subtest: hidden: list filter\nok 4 - hidden: list filter\n  ---\n  duration_ms: 0.1\n  type: 'test'\n  ...\n# Subtest: add and list\nok 5 - add and list\n  ---\n  duration_ms: 1.2422\n  type: 'test'\n  ...\n# Subtest: add requires a title\nok 6 - add requires a title\n  ---\n  duration_ms: 0.2208\n  type: 'test'\n  ...\n# Subtest: complete\nok 7 - complete\n  ---\n  duration_ms: 0.1157\n  type: 'test'\n  ...\n# Subtest: list returns copies\nok 8 - list returns copies\n  ---\n  duration_ms: 0.0669\n  type: 'test'\n  ...\n# Subtest: remove deletes and returns the todo\nok 9 - remove deletes and returns the todo\n  ---\n  duration_ms: 0.1295\n  type: 'test'\n  ...\n# Subtest: remove throws for unknown id\nok 10 - remove throws for unknown id\n  ---\n  duration_ms: 0.0685\n  type: 'test'\n  ...\n# Subtest: list with done filter\nok 11 - list with done filter\n  ---\n  duration_ms: 0.1311\n  type: 'test'\n  ...\n# Subtest: list with done filter returns copies\nok 12 - list with done filter returns copies\n  ---\n  duration_ms: 0.0586\n  type: 'test'\n  ...\n1..12\n# tests 12\n# suites 0\n# pass 12\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 56.9644\n[exit 0]\n"
+    },
+    {
+      "id": "js-cross-file-rename",
+      "title": "Rename a function across files, tests and docs (JavaScript)",
+      "passed": true,
+      "durationMs": 24276,
+      "steps": 5,
+      "promptTokens": 30222,
+      "completionTokens": 1312,
+      "toolCalls": 17,
+      "runStatus": "completed",
+      "checkOutput": "$ node check_rename.mjs\nrename OK\n[exit 0]\n$ node --test\nTAP version 13\n# Subtest: hidden: getDisplayName behaves like before\nok 1 - hidden: getDisplayName behaves like before\n  ---\n  duration_ms: 6.0211\n  type: 'test'\n  ...\n# Subtest: getDisplayName\nok 2 - getDisplayName\n  ---\n  duration_ms: 0.4429\n  type: 'test'\n  ...\n# Subtest: greet\nok 3 - greet\n  ---\n  duration_ms: 0.0729\n  type: 'test'\n  ...\n# Subtest: memberList\nok 4 - memberList\n  ---\n  duration_ms: 5.0703\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 61.2163\n[exit 0]\n"
+    },
+    {
+      "id": "js-fix-bug",
+      "title": "Fix two bugs across files without touching the tests (JavaScript)",
+      "passed": true,
+      "durationMs": 38083,
+      "steps": 5,
+      "promptTokens": 29240,
+      "completionTokens": 2173,
+      "toolCalls": 8,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: single item without tax\nok 1 - single item without tax\n  ---\n  duration_ms: 0.4927\n  type: 'test'\n  ...\n# Subtest: quantities are multiplied\nok 2 - quantities are multiplied\n  ---\n  duration_ms: 0.1117\n  type: 'test'\n  ...\n# Subtest: tax is rounded to the nearest cent\nok 3 - tax is rounded to the nearest cent\n  ---\n  duration_ms: 0.076\n  type: 'test'\n  ...\n# Subtest: discount then tax\nok 4 - discount then tax\n  ---\n  duration_ms: 0.0674\n  type: 'test'\n  ...\n# Subtest: item count\nok 5 - item count\n  ---\n  duration_ms: 0.132\n  type: 'test'\n  ...\n# Subtest: hidden: roundCents rounds to nearest\nok 6 - hidden: roundCents rounds to nearest\n  ---\n  duration_ms: 0.4629\n  type: 'test'\n  ...\n# Subtest: hidden: applyTax\nok 7 - hidden: applyTax\n  ---\n  duration_ms: 0.5453\n  type: 'test'\n  ...\n# Subtest: hidden: mixed cart\nok 8 - hidden: mixed cart\n  ---\n  duration_ms: 0.131\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 58.8779\n[exit 0]\n"
+    },
+    {
+      "id": "js-implement-function",
+      "title": "Implement a function from its specification and test it (JavaScript)",
+      "passed": true,
+      "durationMs": 98409,
+      "steps": 7,
+      "promptTokens": 41485,
+      "completionTokens": 5772,
+      "toolCalls": 8,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: hidden: basics\nok 1 - hidden: basics\n  ---\n  duration_ms: 0.5729\n  type: 'test'\n  ...\n# Subtest: hidden: empty and symbol-only input\nok 2 - hidden: empty and symbol-only input\n  ---\n  duration_ms: 0.0695\n  type: 'test'\n  ...\n# Subtest: hidden: maxLength\nok 3 - hidden: maxLength\n  ---\n  duration_ms: 0.5165\n  type: 'test'\n  ...\n# Subtest: lowercases the input\nok 4 - lowercases the input\n  ---\n  duration_ms: 1.0643\n  type: 'test'\n  ...\n# Subtest: removes accents\nok 5 - removes accents\n  ---\n  duration_ms: 0.1113\n  type: 'test'\n  ...\n# Subtest: collapses every run of non-alphanumeric characters into a single \"-\"\nok 6 - collapses every run of non-alphanumeric characters into a single \"-\"\n  ---\n  duration_ms: 0.108\n  type: 'test'\n  ...\n# Subtest: the result never starts or ends with \"-\"\nok 7 - the result never starts or ends with \"-\"\n  ---\n  duration_ms: 0.0582\n  type: 'test'\n  ...\n# Subtest: keeps digits\nok 8 - keeps digits\n  ---\n  duration_ms: 0.054\n  type: 'test'\n  ...\n# Subtest: an input with no letters or digits gives \"\"\nok 9 - an input with no letters or digits gives \"\"\n  ---\n  duration_ms: 0.0524\n  type: 'test'\n  ...\n# Subtest: maxLength cuts the slug and drops a trailing \"-\" left by the cut\nok 10 - maxLength cuts the slug and drops a trailing \"-\" left by the cut\n  ---\n  duration_ms: 0.0965\n  type: 'test'\n  ...\n# Subtest: maxLength works together with accent removal\nok 11 - maxLength works together with accent removal\n  ---\n  duration_ms: 0.0545\n  type: 'test'\n  ...\n1..11\n# tests 11\n# suites 0\n# pass 11\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 56.9423\n[exit 0]\n"
+    },
+    {
+      "id": "py-cli-tool",
+      "title": "Build a small command-line tool from scratch (Python)",
+      "passed": true,
+      "durationMs": 185684,
+      "steps": 9,
+      "promptTokens": 59809,
+      "completionTokens": 10935,
+      "toolCalls": 10,
+      "runStatus": "completed",
+      "checkOutput": "$ python -m unittest test_hidden_wordfreq -v\ntest_apostrophes_and_digits (test_hidden_wordfreq.HiddenWordfreqTest.test_apostrophes_and_digits) ... ok\r\ntest_counts_case_insensitive_and_sorted (test_hidden_wordfreq.HiddenWordfreqTest.test_counts_case_insensitive_and_sorted) ... ok\r\ntest_default_top_is_10 (test_hidden_wordfreq.HiddenWordfreqTest.test_default_top_is_10) ... ok\r\ntest_missing_file (test_hidden_wordfreq.HiddenWordfreqTest.test_missing_file) ... ok\r\ntest_top (test_hidden_wordfreq.HiddenWordfreqTest.test_top) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 5 tests in 0.198s\r\n\r\nOK\n[exit 0]\n"
+    },
+    {
+      "id": "py-fix-bug",
+      "title": "Fix an inventory bug without touching the tests (Python)",
+      "passed": true,
+      "durationMs": 22020,
+      "steps": 6,
+      "promptTokens": 35593,
+      "completionTokens": 1187,
+      "toolCalls": 6,
+      "runStatus": "completed",
+      "checkOutput": "$ python -m unittest discover -s tests -v\ntest_remove_exactly_available (test_hidden_inventory.HiddenInventoryTest.test_remove_exactly_available) ... ok\r\ntest_remove_one_too_many (test_hidden_inventory.HiddenInventoryTest.test_remove_one_too_many) ... ok\r\ntest_remove_rejects_non_positive (test_hidden_inventory.HiddenInventoryTest.test_remove_rejects_non_positive) ... ok\r\ntest_remove_unknown (test_hidden_inventory.HiddenInventoryTest.test_remove_unknown) ... ok\r\ntest_add_accumulates (test_inventory.InventoryTest.test_add_accumulates) ... ok\r\ntest_add_rejects_non_positive (test_inventory.InventoryTest.test_add_rejects_non_positive) ... ok\r\ntest_remove_all_drops_sku (test_inventory.InventoryTest.test_remove_all_drops_sku) ... ok\r\ntest_remove_some (test_inventory.InventoryTest.test_remove_some) ... ok\r\ntest_remove_too_many_raises (test_inventory.InventoryTest.test_remove_too_many_raises) ... ok\r\ntest_total_units (test_inventory.InventoryTest.test_total_units) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 10 tests in 0.000s\r\n\r\nOK\n[exit 0]\n"
+    }
+  ]
+}

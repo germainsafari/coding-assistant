@@ -4,15 +4,16 @@
 
 Hearth is a web app in the spirit of Claude Code, Cursor and Codex desktop. You open a project folder and describe what you want. The agent then reads and edits code, runs commands, uses git and a real browser, and checks its own work. Everything runs on your machine against a local model served by [vLLM](https://docs.vllm.ai/) (or any OpenAI-compatible server). There are no accounts, no subscriptions and no cloud calls.
 
-![Hearth: chat with the agent on the left, the project's files on the right](docs/images/chat.png)
+![Hearth: chat with the agent, tool cards with diffs, and the project's files](docs/images/chat.png)
 
-It was built and tested with **Qwen3.6-35B-A3B** (NVFP4) on a single RTX 5090. On that setup the model generates about 225 tokens per second, and a typical small task (fix a bug, add a feature with tests) takes 5–15 seconds.
+It was built and tested with **Qwen3.6-35B-A3B** (NVFP4) on a single RTX 5090. On that setup the model generates about 225 tokens per second, and a typical small task (fix a bug, add a feature with tests) takes 5–15 seconds. Native tool calling is on; the context window is 262k tokens.
 
 ## What it can do
 
 | Feature | Status |
 |---|---|
 | Chat UI with streaming answers, visible "thinking", tool cards with diffs, stop button | Working |
+| Dark and light themes, command palette (`Ctrl+K`), keyboard shortcuts, status bar | Working |
 | Projects and threads (open a folder, create a new one, or clone a Git repo) | Working |
 | File tools: read, write, exact search-and-replace edits, delete, list, glob, grep | Working |
 | Shell commands (PowerShell on Windows, bash elsewhere), background processes such as dev servers | Working |
@@ -33,8 +34,8 @@ It was built and tested with **Qwen3.6-35B-A3B** (NVFP4) on a single RTX 5090. O
 | Docker image and `docker-compose.yml` (Hearth, vLLM, LanguageTool, Jaeger) | Working (Hearth image tested; the vLLM service is the same command as the setup guide) |
 | GitHub: clone private repos, list/create issues and pull requests | Partial: implemented, **not tested** (no token was available) |
 | Google Drive | Partial: via a community MCP server template, **not tested** (needs your own Google OAuth credentials) |
-| Native tool calling (`--enable-auto-tool-choice`) | Implemented and auto-detected; the test server ran without it, so all results above used the equally capable *template* mode |
-| Login / multi-user | Not done: Hearth is single-user and binds to `127.0.0.1` only |
+| Native tool calling (`--enable-auto-tool-choice`) | Working: auto-detected; 6/6 evals on Qwen3.6-35B-A3B and on Qwen3.8-27B |
+| Login / multi-user | Not done: Hearth is single-user and binds to localhost only |
 
 ## Quick start
 
@@ -47,7 +48,7 @@ You need **Node.js 22.13+**, **Git** and a running model server. The [setup guid
      -v hf-cache:/root/.cache/huggingface \
      vllm/vllm-openai:nightly nvidia/Qwen3.6-35B-A3B-NVFP4 \
      --served-model-name qwen3.6-35b-a3b --quantization modelopt \
-     --max-model-len 65536 --gpu-memory-utilization 0.88 \
+     --max-model-len 262144 --gpu-memory-utilization 0.88 \
      --enable-auto-tool-choice --tool-call-parser qwen3_coder \
      --reasoning-parser qwen3 --kv-cache-dtype fp8 --enable-prefix-caching
    ```
@@ -69,27 +70,29 @@ You need **Node.js 22.13+**, **Git** and a running model server. The [setup guid
    npm start               # builds the web UI and starts the server
    ```
 
-4. Open **<http://127.0.0.1:3000>**, click **Add project**, and ask for something.
+4. Open **<http://localhost:4545>**, click **Add project**, and ask for something.
 
-> Use `127.0.0.1` rather than `localhost`. If another program already listens on `localhost:3000` over IPv6, the browser may reach that program instead. Hearth prints a warning at startup when this happens. To use another port, set `HEARTH_PORT` (see [.env.example](.env.example)).
+Hearth listens on port **4545** so it doesn't clash with other local apps. To use another port, set `HEARTH_PORT` (see [.env.example](.env.example)).
 
 Other ways to run it:
 
-- `npm run dev` gives hot reload for development (UI on <http://127.0.0.1:3000>, API on :3001).
+- `npm run dev` gives hot reload for development (UI on <http://localhost:4545>, API on :4546).
 - `docker compose up -d --build` runs Hearth in Docker. Projects live in `./workspace`. See [docker-compose.yml](docker-compose.yml).
 
 ## Screenshots
 
 | | |
 |---|---|
+| ![Welcome screen](docs/images/welcome.png) | ![Light theme](docs/images/light-theme.png) |
+| First-run welcome, with model status and shortcuts | Light theme (toggle in the status bar, or `Ctrl+Shift+L`) |
 | ![Files panel with the Monaco editor](docs/images/files.png) | ![Git panel with a diff and AI commit message button](docs/images/git.png) |
 | Files: Monaco editor, live refresh when the agent edits | Git: changes, diff, AI-written commit messages, history |
-| ![Traces panel](docs/images/traces.png) | ![Long-run mode options](docs/images/long-run.png) |
-| Traces: every model call and tool call, with timings and tokens | Long-run mode: time and step budgets plus a definition-of-done command |
-| ![Settings: model profiles](docs/images/settings-models.png) | ![Settings: MCP servers](docs/images/settings-mcp.png) |
-| Settings: model profiles and detected capabilities | Settings: MCP servers as JSON, with templates |
+| ![Traces panel](docs/images/traces.png) | ![Command palette](docs/images/command-palette.png) |
+| Traces: every model call and tool call, with timings and tokens | Command palette (`Ctrl+K`) for projects, threads and actions |
+| ![Settings: model profiles](docs/images/settings-models.png) | ![Long-run mode options](docs/images/long-run.png) |
+| Settings: model profiles and detected capabilities | Long-run mode: time and step budgets plus a definition-of-done command |
 
-More screenshots are in [docs/images](docs/images).
+More screenshots are in [docs/images](docs/images). Keyboard shortcuts: `Ctrl+K` command palette, `Ctrl+B` sidebar, `Ctrl+J` right panel, `Ctrl+/` shortcuts help, `Esc` stop.
 
 ## Evals
 
@@ -110,7 +113,7 @@ More screenshots are in [docs/images](docs/images).
 
 Hearth runs commands and edits files on your computer, so treat it like a terminal:
 
-- It has **no login** and listens on `127.0.0.1` only. Do not expose it to a network.
+- It has **no login** and listens on localhost only. Do not expose it to a network.
 - The default *auto-edit* mode lets the agent edit files in the project without asking, but every shell command that isn't clearly read-only needs your approval.
 - Commands such as `rm -rf /`, disk formatting, `sudo`, force-push and piping downloaded scripts into a shell are always blocked.
 - For untrusted code, run Hearth in Docker, where it only sees the mounted workspace.

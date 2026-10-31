@@ -106,14 +106,16 @@ Each run writes `evals/results/<timestamp>[-label].json` and `.md`. The command 
 
 ## Results
 
-All on the reference setup: Qwen3.6-35B-A3B NVFP4 on vLLM, RTX 5090, 64k context, Windows 11 with PowerShell 5.1. The server ran **without** the tool-call parser, so "template" is the automatically detected mode.
+All on the reference setup: RTX 5090, Windows 11 with PowerShell 5.1. After the vLLM restart, native tool calling is enabled and the context window is 262k tokens.
 
-| Report | Tool mode | Thinking | Score | Total agent time |
-|---|---|---|---|---|
-| [`2026-10-30T19-24-48-final`](../evals/results/2026-10-30T19-24-48-final.md) (final code) | template | on | **6/6** | 56 s |
-| [`2026-10-30T19-04-39`](../evals/results/2026-10-30T19-04-39.md) | template | on | **6/6** | 61 s |
-| [`2026-10-30T19-08-08-prompt-mode`](../evals/results/2026-10-30T19-08-08-prompt-mode.md) | prompt | on | **6/6** | 78 s |
-| [`2026-10-30T19-06-46-no-thinking`](../evals/results/2026-10-30T19-06-46-no-thinking.md) | template | **off** | 5/6 | 81 s |
+| Report | Model | Tool mode | Thinking | Score | Total agent time |
+|---|---|---|---|---|---|
+| [`2026-10-30T19-42-46-native-qwen3.6-pathfix`](../evals/results/2026-10-30T19-42-46-native-qwen3.6-pathfix.md) | Qwen3.6-35B-A3B | **native** | on | **6/6** | 61 s |
+| [`2026-10-30T19-46-44-native-qwen3.8-27b`](../evals/results/2026-10-30T19-46-44-native-qwen3.8-27b.md) | Qwen3.8-27B NVFP4 | **native** | on | **6/6** | 391 s |
+| [`2026-10-30T19-24-48-final`](../evals/results/2026-10-30T19-24-48-final.md) (before native tools) | Qwen3.6-35B-A3B | template | on | **6/6** | 56 s |
+| [`2026-10-30T19-04-39`](../evals/results/2026-10-30T19-04-39.md) | Qwen3.6-35B-A3B | template | on | **6/6** | 61 s |
+| [`2026-10-30T19-08-08-prompt-mode`](../evals/results/2026-10-30T19-08-08-prompt-mode.md) | Qwen3.6-35B-A3B | prompt | on | **6/6** | 78 s |
+| [`2026-10-30T19-06-46-no-thinking`](../evals/results/2026-10-30T19-06-46-no-thinking.md) | Qwen3.6-35B-A3B | template | **off** | 5/6 | 81 s |
 
 Per task in the final run:
 
@@ -128,8 +130,10 @@ Per task in the final run:
 
 What the comparison shows:
 
+- **Keep Qwen3.6-35B-A3B as the default.** Native tool calling on it matches template mode (6/6 in ~1 minute). Qwen3.8-27B also scored 6/6 but took **6.4× longer** (391 s vs 61 s) because it is a dense 27B model, not a 3B-active mixture of experts.
 - **Thinking matters on the open-ended task.** Without thinking, `py-cli-tool` ran out of its 30 steps (318k prompt tokens) on a sort-order detail that the thinking runs got right the first time. Without thinking the other tasks also took more steps (for example 17 instead of 11 for the rename), so it wasn't faster overall either.
 - **Prompt mode works as well as template mode** on this model, only a little slower. Hearth is therefore usable with servers that don't support tools at all.
+- **The first native-mode run scored 5/6** because the model wrote `py-cli-tool/wordfreq.py` while already inside the `py-cli-tool` folder. Hearth now strips that redundant project-name prefix (see `resolveInProject` in `safety.ts`). After the fix, native mode is 6/6.
 - **Six tasks is a smoke test, not a benchmark.** It catches regressions in the harness (parsing, tools, Windows shell handling) and gross model differences, but not small quality differences. Run each configuration more than once before drawing conclusions, since sampling makes individual runs vary.
 
 After these comparisons, the `py-cli-tool` prompt was clarified. It used to say "sort alphabetically" without saying how digits sort; the hidden tests expect plain string order, and the prompt now says so. The three earlier runs used the old wording (the thinking runs passed it anyway), and the final run used the new one.

@@ -7,10 +7,11 @@ Where Hearth stands, what is missing, and what would make it better. Contributio
 | Area | State |
 |---|---|
 | Chat UI, projects and threads, streaming, tool cards, approvals | Working, used daily during development |
+| Dark/light themes, command palette, keyboard shortcuts, status bar | Working |
 | File, shell, git, browser, web and agentic tools | Working |
 | Safety: approval modes, deny list, project sandbox for file tools | Working, unit-tested |
 | Template and prompt tool-calling modes | Working: 6/6 evals in both |
-| Native tool-calling mode | Implemented and auto-detected, **not yet run end to end** (the test server had no tool parser enabled) |
+| Native tool-calling mode | Working: 6/6 evals on Qwen3.6-35B-A3B and on Qwen3.8-27B |
 | Context compaction | Working (tested with a forced 10k-token window) |
 | Long-run mode with verification gate and auto-resume | Working (tested with a 10-item task and a forced crash) |
 | Memory, project notes, skills | Working |
@@ -26,7 +27,7 @@ Where Hearth stands, what is missing, and what would make it better. Contributio
 
 ## Known limitations
 
-- **Single user, no login.** Hearth binds to `127.0.0.1` and trusts whoever can reach it. Don't expose it on a network.
+- **Single user, no login.** Hearth binds to localhost and trusts whoever can reach it. Don't expose it on a network.
 - **Shell commands are not sandboxed.** File tools stay inside the project, but `run_shell` runs with your account's permissions. Approvals (default) or Docker are the protection.
 - **No interactive terminal.** Commands run without a TTY. Programs that wait for keyboard input hang until their timeout; the agent is told to use non-interactive flags.
 - **One run per thread at a time.** Several threads can run in parallel, but they share the GPU and the single headless browser.
@@ -39,7 +40,6 @@ Where Hearth stands, what is missing, and what would make it better. Contributio
 
 Near term:
 
-- Run native tool-calling mode end to end once vLLM is restarted with `--enable-auto-tool-choice --tool-call-parser qwen3_coder`, and add its eval results.
 - Test the GitHub flows with a real token: private clone, push, PR from the Git panel, the agent's `github_*` tools.
 - Test Google Drive with real OAuth credentials, and document the exact first-run sign-in.
 - Test an HTTP MCP server.

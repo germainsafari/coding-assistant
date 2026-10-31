@@ -27,9 +27,9 @@ hearth/
 
 | Command | What it does |
 |---|---|
-| `npm start` | Build the UI, then start the server on <http://127.0.0.1:3000> |
+| `npm start` | Build the UI, then start the server on <http://localhost:4545> |
 | `npm run start:only` | Start the server without rebuilding the UI |
-| `npm run dev` | Hot-reload development: Vite on :3000 (proxies `/api`), server with `tsx watch` on :3001 |
+| `npm run dev` | Hot-reload development: Vite on :4545 (proxies `/api`), server with `tsx watch` on :4546 |
 | `npm run build` | Build the UI into `packages/web/dist` |
 | `npm run typecheck` | Type-check all three packages |
 | `npm test` | Server unit tests (`node --test`, files named `*.test.ts`) |
@@ -43,7 +43,7 @@ hearth/
 
 ### Entry and configuration
 
-- **`index.ts`** starts Fastify. It registers the routes and serves `packages/web/dist`, with a SPA fallback and long caching for hashed assets. It marks crashed runs as interrupted, auto-resumes long runs, connects MCP servers, and warns if `localhost:3000` is taken by another program over IPv6.
+- **`index.ts`** starts Fastify. It registers the routes and serves `packages/web/dist`, with a SPA fallback and long caching for hashed assets. It marks crashed runs as interrupted, auto-resumes long runs, connects MCP servers, and warns if another program already answers on the chosen port.
 - **`config.ts`** handles paths (`APP_ROOT`, `DATA_DIR`), loads `.env`, provides the default settings, and reads/writes `data/settings.json`. Model profiles live here: `settings.model` is a derived view of the active profile, and `settingsForProfile()` makes per-run overrides.
 - **`db.ts`** is the SQLite schema and small repository objects: `projects`, `threads`, `messages`, `runs`, `spans`, `memories`, plus `metrics()`. It uses `node:sqlite`, so no native modules are needed.
 - **`doctor.ts`** implements `npm run doctor`.
@@ -80,7 +80,7 @@ hearth/
 ### Integrations
 
 - **`shell.ts`** picks the shell: `pwsh`, then Windows PowerShell 5.1, then `bash`/`sh`. `execCommand()` runs a command with a timeout, output streaming and tree-kill. It also manages background processes.
-- **`safety.ts`**: the sandbox (`resolveInProject`), the deny list, read-only command detection, and the approval matrix.
+- **`safety.ts`**: the sandbox (`resolveInProject`, including dropping a redundant project-name prefix), the deny list, read-only command detection, and the approval matrix.
 - **`git.ts`** is a thin wrapper around the `git` CLI (status parsing, log, branches, commit, push with token, clone). `initRepo()` adds a default `.gitignore`.
 - **`github.ts`**: a minimal GitHub REST client (user, repos, issues, pulls).
 - **`browser.ts`** keeps one shared Playwright browser. It prefers Playwright's Chromium and falls back to Chrome or Edge. It handles navigation, clicks, typing, screenshots and readable page text.
@@ -116,20 +116,31 @@ The unit tests sit next to the code (`*.test.ts`) and use `node:test`. Tests tha
 
 ## Web UI (`packages/web/src`)
 
-- **`main.tsx` / `App.tsx`**: the app shell with three resizable panes (`react-resizable-panels`): sidebar, chat and right panel. It also renders the modals and toasts.
-- **`store.ts`**: global state (zustand). It holds projects, threads, the selected project and thread, the right panel tab, settings, capabilities, modals and notifications. UI layout is persisted in `localStorage` (`hearth.ui`).
+- **`main.tsx` / `App.tsx`**: the app shell with three resizable panes (`react-resizable-panels`): sidebar, chat and right panel. It also renders the status bar, command palette, shortcuts dialog, settings, and toasts.
+- **`store.ts`**: global state (zustand). It holds projects, threads, the selected project and thread, the right panel tab, settings, capabilities, theme, modals and notifications. UI layout is persisted in `localStorage` (`hearth.ui`); the theme in `hearth.theme`.
+- **`theme.ts`**: dark (default), light, and system themes. Respects `prefers-color-scheme` when set to system.
+- **`shortcuts.ts`**: global keyboard shortcuts (`Ctrl+K` palette, `Ctrl+B` sidebar, `Ctrl+J` right panel, `Ctrl+/` help, `Esc` stop, `Ctrl+Shift+L` theme).
+- **`highlight.ts`**: syntax highlighting for Markdown code blocks (highlight.js, languages loaded on demand).
 - **`api.ts`**: typed wrappers around every API endpoint, plus `subscribeRun()`, which reads the SSE stream over `fetch`. The server replays buffered events on every subscribe, and the consumer de-duplicates them.
 - **`chat/useThread.ts`**: loads a thread and folds the live event stream into renderable state: messages, the streaming draft, pending approvals and questions, plan, usage, notices.
+- **`chat/MessageList.tsx`**: the transcript. Folds read-only lookups into "Explored" groups, auto-scrolls unless you scroll up, and shows a "Jump to latest" button.
+- **`chat/Composer.tsx`**: autosizing input, model/approval/long-run controls, stop button while running.
 - **`chat/ToolCard.tsx`**: one card per tool call. It shows a title, a status, diffs, output and images, plus the approval and question UI and nested subagent steps.
+- **`chat/Blocks.tsx`**: thinking, plan/todo progress, harness notices.
 - **`components/`**:
-  - `Chat.tsx`: message list, composer (model profile, approval mode, long-run options), plan panel, resume banner, notices.
-  - `Sidebar.tsx`: projects and threads.
+  - `Chat.tsx`: header, message list, composer, resume banner, notices.
+  - `Welcome.tsx`: first-run empty state, new-thread hero, model-offline banner.
+  - `Sidebar.tsx`: projects and threads, filter, hover actions, collapsible.
+  - `StatusBar.tsx`: model connection, tool mode, context size, tokens/s, theme toggle, shortcuts.
+  - `CommandPalette.tsx` (`cmdk`): jump to projects/threads and run actions.
+  - `ShortcutsDialog.tsx`: the keyboard-shortcuts help overlay.
   - `ProjectDialog.tsx`: open a folder, create a project, or clone a repo (with GitHub repo search when a token is set).
-  - `Markdown.tsx`: GitHub-flavored Markdown rendering, and `DiffView` for unified diffs.
+  - `Markdown.tsx`: GitHub-flavored Markdown rendering, copy buttons on code blocks, and `DiffView` for unified diffs.
   - `RightPanel.tsx` with `panels/`: `FilesPanel` (tree + Monaco editor), `GitPanel`, `BrowserPanel` (agent browser or iframe), `TerminalPanel`, `TracesPanel` (runs, trace waterfall, metrics, evals).
   - `settings/`: the settings dialog and its tabs (Models, Agent, MCP servers, Connectors, Skills, Memory).
-  - `ui.tsx`: small shared components (Button, Modal, Tabs, Badge, Spinner, Empty, Toggle).
+  - `ui.tsx`: small shared components (Button, Modal, Tabs, Badge, Spinner, Empty, Toggle, Skeleton).
 - **`monaco.ts`** loads Monaco from the local bundle (no CDN), which keeps the app fully offline.
+- Fonts (`@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`) are bundled, so the UI works offline.
 
 ## Common changes
 

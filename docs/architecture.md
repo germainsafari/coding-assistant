@@ -48,7 +48,7 @@ flowchart LR
 ```
 
 - **The web UI** (`packages/web`) is a static React app. In production the Hearth server serves it from `packages/web/dist`. It never talks to the model directly; everything goes through the API.
-- **The server** (`packages/server`) holds all state and does all the work. It is single-user and listens on `127.0.0.1:3000` by default.
+- **The server** (`packages/server`) holds all state and does all the work. It is single-user and listens on `localhost:4545` by default (IPv4 and IPv6 loopback).
 - **Shared types** (`packages/shared`) define the settings, messages, runs, spans and the `AgentEvent` stream protocol used by both sides.
 - **The model server** is anything that speaks the OpenAI Chat Completions API. The reference setup is vLLM serving Qwen3.6-35B-A3B.
 

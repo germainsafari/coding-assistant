@@ -11,7 +11,7 @@ git clone <this repository> hearth
 cd hearth
 npm install
 npm run setup:browser
-npm run dev            # UI with hot reload on http://127.0.0.1:3000, API on :3001
+npm run dev            # UI with hot reload on http://localhost:4545, API on :4546
 ```
 
 `npm run dev` restarts the server when you change server code and hot-reloads the UI. Active agent runs are interrupted by a server restart. Long runs resume automatically, other runs show a Resume button.

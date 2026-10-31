@@ -1,0 +1,85 @@
+{
+  "id": "2026-10-30T19-42-46-native-qwen3.6-pathfix",
+  "startedAt": 1793389366281,
+  "finishedAt": 1793389427002,
+  "model": "qwen3.6-35b-a3b",
+  "profile": "qwen3.6-35b-a3b",
+  "thinking": true,
+  "toolMode": "native",
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "js-add-feature",
+      "title": "Add two features to an existing class, with tests (JavaScript)",
+      "passed": true,
+      "durationMs": 9316,
+      "steps": 9,
+      "promptTokens": 56841,
+      "completionTokens": 1689,
+      "toolCalls": 10,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: hidden: remove returns the todo and deletes it\nok 1 - hidden: remove returns the todo and deletes it\n  ---\n  duration_ms: 0.8189\n  type: 'test'\n  ...\n# Subtest: hidden: remove unknown id throws with the id\nok 2 - hidden: remove unknown id throws with the id\n  ---\n  duration_ms: 0.2669\n  type: 'test'\n  ...\n# Subtest: hidden: removed ids are not reused\nok 3 - hidden: removed ids are not reused\n  ---\n  duration_ms: 0.5058\n  type: 'test'\n  ...\n# Subtest: hidden: list filter\nok 4 - hidden: list filter\n  ---\n  duration_ms: 0.1123\n  type: 'test'\n  ...\n# Subtest: add and list\nok 5 - add and list\n  ---\n  duration_ms: 1.2046\n  type: 'test'\n  ...\n# Subtest: add requires a title\nok 6 - add requires a title\n  ---\n  duration_ms: 0.2227\n  type: 'test'\n  ...\n# Subtest: complete\nok 7 - complete\n  ---\n  duration_ms: 0.1139\n  type: 'test'\n  ...\n# Subtest: list returns copies\nok 8 - list returns copies\n  ---\n  duration_ms: 0.0665\n  type: 'test'\n  ...\n# Subtest: remove deletes and returns the todo\nok 9 - remove deletes and returns the todo\n  ---\n  duration_ms: 0.1165\n  type: 'test'\n  ...\n# Subtest: remove throws when id not found\nok 10 - remove throws when id not found\n  ---\n  duration_ms: 0.0844\n  type: 'test'\n  ...\n# Subtest: list filters by done\nok 11 - list filters by done\n  ---\n  duration_ms: 0.1376\n  type: 'test'\n  ...\n# Subtest: list without filter returns all\nok 12 - list without filter returns all\n  ---\n  duration_ms: 0.0616\n  type: 'test'\n  ...\n1..12\n# tests 12\n# suites 0\n# pass 12\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 58.0589\n[exit 0]\n"
+    },
+    {
+      "id": "js-cross-file-rename",
+      "title": "Rename a function across files, tests and docs (JavaScript)",
+      "passed": true,
+      "durationMs": 9471,
+      "steps": 11,
+      "promptTokens": 69339,
+      "completionTokens": 1633,
+      "toolCalls": 17,
+      "runStatus": "completed",
+      "checkOutput": "$ node check_rename.mjs\nrename OK\n[exit 0]\n$ node --test\nTAP version 13\n# Subtest: hidden: getDisplayName behaves like before\nok 1 - hidden: getDisplayName behaves like before\n  ---\n  duration_ms: 5.8806\n  type: 'test'\n  ...\n# Subtest: getDisplayName\nok 2 - getDisplayName\n  ---\n  duration_ms: 0.4268\n  type: 'test'\n  ...\n# Subtest: greet\nok 3 - greet\n  ---\n  duration_ms: 0.074\n  type: 'test'\n  ...\n# Subtest: memberList\nok 4 - memberList\n  ---\n  duration_ms: 5.2059\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 61.8071\n[exit 0]\n"
+    },
+    {
+      "id": "js-fix-bug",
+      "title": "Fix two bugs across files without touching the tests (JavaScript)",
+      "passed": true,
+      "durationMs": 7481,
+      "steps": 5,
+      "promptTokens": 34169,
+      "completionTokens": 1267,
+      "toolCalls": 8,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: single item without tax\nok 1 - single item without tax\n  ---\n  duration_ms: 0.4881\n  type: 'test'\n  ...\n# Subtest: quantities are multiplied\nok 2 - quantities are multiplied\n  ---\n  duration_ms: 0.115\n  type: 'test'\n  ...\n# Subtest: tax is rounded to the nearest cent\nok 3 - tax is rounded to the nearest cent\n  ---\n  duration_ms: 0.0738\n  type: 'test'\n  ...\n# Subtest: discount then tax\nok 4 - discount then tax\n  ---\n  duration_ms: 0.0658\n  type: 'test'\n  ...\n# Subtest: item count\nok 5 - item count\n  ---\n  duration_ms: 0.1351\n  type: 'test'\n  ...\n# Subtest: hidden: roundCents rounds to nearest\nok 6 - hidden: roundCents rounds to nearest\n  ---\n  duration_ms: 0.3888\n  type: 'test'\n  ...\n# Subtest: hidden: applyTax\nok 7 - hidden: applyTax\n  ---\n  duration_ms: 0.4493\n  type: 'test'\n  ...\n# Subtest: hidden: mixed cart\nok 8 - hidden: mixed cart\n  ---\n  duration_ms: 0.1114\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 56.0904\n[exit 0]\n"
+    },
+    {
+      "id": "js-implement-function",
+      "title": "Implement a function from its specification and test it (JavaScript)",
+      "passed": true,
+      "durationMs": 9916,
+      "steps": 8,
+      "promptTokens": 51726,
+      "completionTokens": 1738,
+      "toolCalls": 9,
+      "runStatus": "completed",
+      "checkOutput": "$ node --test\nTAP version 13\n# Subtest: hidden: basics\nok 1 - hidden: basics\n  ---\n  duration_ms: 0.5756\n  type: 'test'\n  ...\n# Subtest: hidden: empty and symbol-only input\nok 2 - hidden: empty and symbol-only input\n  ---\n  duration_ms: 0.0687\n  type: 'test'\n  ...\n# Subtest: hidden: maxLength\nok 3 - hidden: maxLength\n  ---\n  duration_ms: 0.4871\n  type: 'test'\n  ...\n# Subtest: slugify\n    # Subtest: converts to lowercase\n    ok 1 - converts to lowercase\n      ---\n      duration_ms: 0.5766\n      type: 'test'\n      ...\n    # Subtest: removes accents\n    ok 2 - removes accents\n      ---\n      duration_ms: 0.0915\n      type: 'test'\n      ...\n    # Subtest: collapses runs of non-alphanumeric to a single hyphen\n    ok 3 - collapses runs of non-alphanumeric to a single hyphen\n      ---\n      duration_ms: 0.0675\n      type: 'test'\n      ...\n    # Subtest: strips leading and trailing hyphens\n    ok 4 - strips leading and trailing hyphens\n      ---\n      duration_ms: 0.0577\n      type: 'test'\n      ...\n    # Subtest: applies maxLength and trims trailing hyphen\n    ok 5 - applies maxLength and trims trailing hyphen\n      ---\n      duration_ms: 0.0683\n      type: 'test'\n      ...\n    # Subtest: returns \"\" for input with no letters or digits\n    ok 6 - returns \"\" for input with no letters or digits\n      ---\n      duration_ms: 0.0503\n      type: 'test'\n      ...\n    # Subtest: handles empty string\n    ok 7 - handles empty string\n      ---\n      duration_ms: 0.0487\n      type: 'test'\n      ...\n    # Subtest: handles string with only accents\n    ok 8 - handles string with only accents\n      ---\n      duration_ms: 0.1639\n      type: 'test'\n      ...\n    # Subtest: handles maxLength cutting mid-word at a hyphen boundary\n    ok 9 - handles maxLength cutting mid-word at a hyphen boundary\n      ---\n      duration_ms: 0.1689\n      type: 'test'\n      ...\n    # Subtest: preserves hyphens within the maxLength cutoff\n    ok 10 - preserves hyphens within the maxLength cutoff\n      ---\n      duration_ms: 0.2114\n      type: 'test'\n      ...\n    # Subtest: handles maxLength equal to slug length\n    ok 11 - handles maxLength equal to slug length\n      ---\n      duration_ms: 0.0564\n      type: 'test'\n      ...\n    # Subtest: handles maxLength smaller than any word\n    ok 12 - handles maxLength smaller than any word\n      ---\n      duration_ms: 0.043\n      type: 'test'\n      ...\n    1..12\nok 4 - slugify\n  ---\n  duration_ms: 2.4202\n  type: 'suite'\n  ...\n1..4\n# tests 15\n# suites 1\n# pass 15\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 57.738\n[exit 0]\n"
+    },
+    {
+      "id": "py-cli-tool",
+      "title": "Build a small command-line tool from scratch (Python)",
+      "passed": true,
+      "durationMs": 18743,
+      "steps": 15,
+      "promptTokens": 104002,
+      "completionTokens": 3521,
+      "toolCalls": 14,
+      "runStatus": "completed",
+      "checkOutput": "$ python -m unittest test_hidden_wordfreq -v\ntest_apostrophes_and_digits (test_hidden_wordfreq.HiddenWordfreqTest.test_apostrophes_and_digits) ... ok\r\ntest_counts_case_insensitive_and_sorted (test_hidden_wordfreq.HiddenWordfreqTest.test_counts_case_insensitive_and_sorted) ... ok\r\ntest_default_top_is_10 (test_hidden_wordfreq.HiddenWordfreqTest.test_default_top_is_10) ... ok\r\ntest_missing_file (test_hidden_wordfreq.HiddenWordfreqTest.test_missing_file) ... ok\r\ntest_top (test_hidden_wordfreq.HiddenWordfreqTest.test_top) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 5 tests in 0.201s\r\n\r\nOK\n[exit 0]\n"
+    },
+    {
+      "id": "py-fix-bug",
+      "title": "Fix an inventory bug without touching the tests (Python)",
+      "passed": true,
+      "durationMs": 5794,
+      "steps": 6,
+      "promptTokens": 41596,
+      "completionTokens": 962,
+      "toolCalls": 7,
+      "runStatus": "completed",
+      "checkOutput": "$ python -m unittest discover -s tests -v\ntest_remove_exactly_available (test_hidden_inventory.HiddenInventoryTest.test_remove_exactly_available) ... ok\r\ntest_remove_one_too_many (test_hidden_inventory.HiddenInventoryTest.test_remove_one_too_many) ... ok\r\ntest_remove_rejects_non_positive (test_hidden_inventory.HiddenInventoryTest.test_remove_rejects_non_positive) ... ok\r\ntest_remove_unknown (test_hidden_inventory.HiddenInventoryTest.test_remove_unknown) ... ok\r\ntest_add_accumulates (test_inventory.InventoryTest.test_add_accumulates) ... ok\r\ntest_add_rejects_non_positive (test_inventory.InventoryTest.test_add_rejects_non_positive) ... ok\r\ntest_remove_all_drops_sku (test_inventory.InventoryTest.test_remove_all_drops_sku) ... ok\r\ntest_remove_some (test_inventory.InventoryTest.test_remove_some) ... ok\r\ntest_remove_too_many_raises (test_inventory.InventoryTest.test_remove_too_many_raises) ... ok\r\ntest_total_units (test_inventory.InventoryTest.test_total_units) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 10 tests in 0.000s\r\n\r\nOK\n[exit 0]\n"
+    }
+  ]
+}

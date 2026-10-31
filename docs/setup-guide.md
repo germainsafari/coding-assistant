@@ -28,7 +28,7 @@ An optional third part, **LanguageTool**, checks grammar in docs and commit mess
 | Disk | 60 GB free (model ~22 GB, Docker images ~15 GB) | 40 GB |
 | OS | Windows 11 with WSL 2, or Linux | |
 
-**Which model?** Hearth is tested with `nvidia/Qwen3.6-35B-A3B-NVFP4`, a mixture-of-experts coding model with 35B parameters and only 3B active per token. That makes it fast: about 200 tokens per second on an RTX 5090.
+**Which model?** Hearth is tested with `nvidia/Qwen3.6-35B-A3B-NVFP4`, a mixture-of-experts coding model with 35B parameters and only 3B active per token. That makes it fast: about 200 tokens per second on an RTX 5090. On a 32 GB card you can also run `unsloth/Qwen3.8-27B-NVFP4`, which scored equally on the six built-in evals but was about 6× slower; keep Qwen3.6 as the everyday model.
 
 - **NVFP4 needs an NVIDIA Blackwell GPU** (RTX 50-series, RTX PRO 6000, B200).
 - **On RTX 30- and 40-series cards** use an AWQ or GPTQ 4-bit build of a Qwen3 coder model that fits your VRAM. Search Hugging Face for the model name plus "AWQ". Then change the model name in the command in step 3, drop `--quantization modelopt` (vLLM detects AWQ/GPTQ automatically), and lower `--max-model-len` (for example to 32768) if you run out of memory.
@@ -102,7 +102,7 @@ docker run -d --name vllm --restart unless-stopped \
   nvidia/Qwen3.6-35B-A3B-NVFP4 \
   --served-model-name qwen3.6-35b-a3b \
   --quantization modelopt \
-  --max-model-len 65536 \
+  --max-model-len 262144 \
   --gpu-memory-utilization 0.88 \
   --enable-auto-tool-choice --tool-call-parser qwen3_coder \
   --reasoning-parser qwen3 \
@@ -120,7 +120,7 @@ docker run -d --name vllm --restart unless-stopped `
   nvidia/Qwen3.6-35B-A3B-NVFP4 `
   --served-model-name qwen3.6-35b-a3b `
   --quantization modelopt `
-  --max-model-len 65536 `
+  --max-model-len 262144 `
   --gpu-memory-utilization 0.88 `
   --enable-auto-tool-choice --tool-call-parser qwen3_coder `
   --reasoning-parser qwen3 `
@@ -134,7 +134,7 @@ What the flags do:
 |---|---|
 | `--served-model-name qwen3.6-35b-a3b` | The name Hearth uses to ask for the model (Hearth's default). |
 | `--quantization modelopt` | The NVFP4 checkpoint is made with NVIDIA ModelOpt. |
-| `--max-model-len 65536` | Context window: how much text the model sees at once. Lower it if you run out of memory. |
+| `--max-model-len 262144` | Context window: how much text the model sees at once. 262k fits on a 32 GB RTX 5090 with FP8 KV cache. Lower it (for example to 65536) if you run out of memory. |
 | `--gpu-memory-utilization 0.88` | Share of VRAM vLLM may use. Leave some for your desktop. |
 | `--enable-auto-tool-choice --tool-call-parser qwen3_coder` | Native tool calling. Without these flags Hearth falls back to "template" mode, which also works well (see [harness.md](harness.md#tool-calling-modes)). |
 | `--reasoning-parser qwen3` | Separates the model's "thinking" from its answer, so Hearth can show it collapsed. |
@@ -182,8 +182,8 @@ Hearth doctor
 ✔ Python (optional, used by some evals): Python 3.13.7
 ✔ Data folder: …\hearth\data
 ✔ Web UI build: …\hearth\packages\web\dist
-✔ Port 3000 on 127.0.0.1: free
-✔ Model "qwen3.6-35b-a3b" (qwen3.6-35b-a3b @ http://localhost:8080/v1): served, context 65536 tokens
+✔ Port 4545 on localhost (IPv4 + IPv6): free
+✔ Model "qwen3.6-35b-a3b" (qwen3.6-35b-a3b @ http://localhost:8080/v1): served, context 262144 tokens
 ✔   Tool calling: native mode (native=true, template=true), reasoning=true
 ✔ LanguageTool (optional): http://localhost:8081
 ✔ Browser for agent tools: Playwright Chromium
@@ -199,7 +199,7 @@ All required checks passed. Start Hearth with: npm start
 npm start
 ```
 
-This builds the web UI and starts the server. Open **<http://127.0.0.1:3000>** in your browser. To stop Hearth, press Ctrl+C in that terminal. Next time, `npm run start:only` skips the build and starts in a second.
+This builds the web UI and starts the server. Open **<http://localhost:4545>** in your browser. To stop Hearth, press Ctrl+C in that terminal. Next time, `npm run start:only` skips the build and starts in a second.
 
 ## 6. Your first task
 
@@ -229,8 +229,8 @@ Startup options come from environment variables or a `.env` file in the Hearth f
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `HEARTH_PORT` | `3000` | Web server port |
-| `HEARTH_HOST` | `127.0.0.1` | Keep it on localhost: Hearth has no login |
+| `HEARTH_PORT` | `4545` | Web server port (`npm run dev` uses 4545 for the UI and 4546 for the API) |
+| `HEARTH_HOST` | `localhost` | IPv4 and IPv6 loopback. Hearth has no login, so don't bind it to a public address |
 | `HEARTH_DATA_DIR` | `./data` | Database, settings and user skills |
 | `HEARTH_PROJECTS_DIR` | `~/HearthProjects` | Where "New project" creates folders |
 | `HEARTH_LLM_BASE_URL` | `http://localhost:8080/v1` | Default model server (first start only; later the UI settings win) |
@@ -250,18 +250,18 @@ docker compose --profile vllm --profile languagetool up -d --build   # plus vLLM
 docker compose --profile observability up -d           # plus Jaeger for traces
 ```
 
-Open <http://127.0.0.1:3000>. Projects are stored in `./workspace` next to the compose file; create them under `/workspace` in the UI. The container reaches the model server through `host.docker.internal:8080`. If you already started vLLM with step 3, don't also use the `vllm` profile: both would claim port 8080 and the GPU.
+Open <http://localhost:4545>. Projects are stored in `./workspace` next to the compose file; create them under `/workspace` in the UI. The container reaches the model server through `host.docker.internal:8080`. If you already started vLLM with step 3, don't also use the `vllm` profile: both would claim port 8080 and the GPU.
 
 ## 9. Troubleshooting
 
-**The page at localhost:3000 shows a different app, or doesn't load.** Another program uses port 3000 on IPv6 (`::`). Open <http://127.0.0.1:3000> instead (Hearth prints a warning about this at startup), or start Hearth on another port:
+**The page at localhost:4545 shows a different app, or doesn't load.** Another program is using that port. Hearth prints a warning at startup. Start it on another port:
 
 ```powershell
-$env:HEARTH_PORT=3005; npm run start:only      # PowerShell
+$env:HEARTH_PORT=4550; npm run start:only      # PowerShell
 ```
 
 ```bash
-HEARTH_PORT=3005 npm run start:only            # bash
+HEARTH_PORT=4550 npm run start:only            # bash
 ```
 
 **"Cannot reach the model server".** Check `docker ps` (is `vllm` running?) and `docker logs vllm` (is it still loading, or did it crash?). Then try `curl http://localhost:8080/v1/models`. In Settings → Models, make sure the URL ends in `/v1`.
