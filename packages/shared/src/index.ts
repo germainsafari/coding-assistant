@@ -47,6 +47,8 @@ export interface RunOptions {
   longRun?: LongRunOptions;
   /** id of the interrupted run this one resumes */
   resumeOf?: string;
+  /** How many times Hearth has auto-continued this task after a step/time checkpoint. */
+  autoContinueCount?: number;
 }
 
 export interface McpServerConfig {
@@ -69,7 +71,9 @@ export interface Settings {
   approvalMode: ApprovalMode;
   /** Compact the conversation when the prompt exceeds this fraction of the context window. */
   compactAt: number;
-  longRun: Omit<LongRunOptions, 'enabled'> & { autoResume: boolean };
+  longRun: Omit<LongRunOptions, 'enabled'> & { autoResume: boolean; autoContinue: boolean };
+  /** Composer Long-run toggle. Persisted so it stays on across threads and reloads. */
+  longRunEnabled: boolean;
   maxSteps: number;
   shellTimeoutSec: number;
   projectsDir: string;

@@ -3,7 +3,7 @@
 // plan-completeness checks, durable checkpoints (.agent/progress.md) and
 // patience with a temporarily unavailable model server.
 import type { AgentEventBody, ChatMessage, LongRunOptions, Project, RunOptions, RunStatus, Settings, Thread, ToolCall } from '@hearth/shared';
-import { settingsForProfile } from '../config.ts';
+import { getSettings, settingsForProfile } from '../config.ts';
 import { messages as messagesDb, projects, runs as runsDb, spans, threads } from '../db.ts';
 import { chatOnce, chatStream, invalidateCapabilities, LlmHttpError, probeCapabilities, type LlmResult } from '../llm/client.ts';
 import { approvalNeeded, deniedReason, SandboxError } from '../safety.ts';
@@ -12,7 +12,7 @@ import { allTools, toOpenAITools } from '../tools/index.ts';
 import type { ToolContext, ToolDef, ToolResult } from '../tools/types.ts';
 import { errMsg, newId, safeJson, truncateMiddle } from '../util.ts';
 import { buildContext, calibrate, compact, type ContextOptions } from './context.ts';
-import { appendProgress, resolveLongRun } from './longrun.ts';
+import { appendProgress, resolveLongRun, shouldAutoContinue } from './longrun.ts';
 import { buildSystemPrompt } from './prompt.ts';
 import { finishRun, registerRun, RunHandle } from './runs.ts';
 import { exportRunToOtel } from '../otel.ts';
@@ -272,6 +272,17 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
           addSynthetic(o, `[harness] ${why} Continue the task: call the next tool, or give your final answer. Keep reasoning brief.`);
           continue;
         }
+        const unfinished = threads.getTodos(o.thread.id).filter((t) => t.status === 'pending' || t.status === 'in_progress');
+        const planBudget = lr ? 8 : 5;
+        if (unfinished.length && planNudges < planBudget) {
+          planNudges++;
+          emit({ type: 'notice', level: 'info', text: `${unfinished.length} plan item(s) still open; continuing.` });
+          addSynthetic(
+            o,
+            `[harness] Follow the plan strictly. ${unfinished.length} item(s) are still unfinished:\n${unfinished.map((t) => `- [${t.status}] ${t.content}`).join('\n')}\nKeep working on the in-progress item. Do not start unrelated work. If an item is not needed, mark it cancelled via update_plan and say why. Do not give a final answer until the plan is done.`,
+          );
+          continue;
+        }
         if (lr) {
           const gate = await longRunGate(o, lr, { planNudges, verifyAttempts });
           planNudges = gate.planNudges;
@@ -297,6 +308,17 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
         const msg = await executeCall(o, call, tool, known);
         stuck.record(call, !!msg.meta?.ok);
       }
+      if (step % 10 === 0) {
+        const open = threads.getTodos(o.thread.id).filter((t) => t.status === 'pending' || t.status === 'in_progress');
+        try {
+          appendProgress(
+            o.project.path,
+            `Checkpoint: step ${step}`,
+            `Open plan items (${open.length}):\n${open.length ? open.map((t) => `- [${t.status}] ${t.content}`).join('\n') : '(none)'}\n\nLast assistant note:\n${(res.content || '').slice(0, 800)}`,
+          );
+        } catch {}
+        emit({ type: 'notice', level: 'info', text: `Checkpoint saved at step ${step}${open.length ? ` · ${open.length} plan item(s) still open` : ''}.` });
+      }
       const warn = stuck.check();
       if (warn) {
         emit({ type: 'notice', level: 'warn', text: 'Loop/stuck detection triggered: asking the agent to reflect and change strategy.' });
@@ -312,11 +334,29 @@ async function runLoop(o: LoopOptions): Promise<LoopResult> {
     if (signal.aborted) result.status = 'cancelled';
     else if (result.status === 'running') {
       result.status = 'max_steps';
-      result.finalText = `Stopped after reaching the maximum of ${maxSteps} steps. Send "continue" to keep going.`;
+      result.finalText = `Reached the ${maxSteps}-step checkpoint.`;
     }
+    const continuing = shouldAutoContinue({
+      status: result.status,
+      source: o.source,
+      autoContinue: o.settings.longRun.autoContinue !== false,
+      continueCount: o.runOptions.autoContinueCount ?? 0,
+    });
     if (result.status === 'max_steps' || result.status === 'budget_exhausted') {
-      const m = messagesDb.add({ threadId: o.thread.id, role: 'assistant', content: result.finalText, runId: o.runId, meta: { ok: true, synthetic: true } });
-      emit({ type: 'assistant_message', message: m });
+      if (continuing) {
+        const open = threads.getTodos(o.thread.id).filter((t) => t.status === 'pending' || t.status === 'in_progress');
+        try {
+          appendProgress(o.project.path, `Auto-continue checkpoint (${result.status})`, `Steps this run: ${result.steps}. Open plan items:\n${open.length ? open.map((t) => `- [${t.status}] ${t.content}`).join('\n') : '(none)'}`);
+        } catch {}
+        emit({ type: 'notice', level: 'info', text: `Checkpoint at ${result.steps} steps — continuing automatically. You don't need to press Resume.` });
+      } else {
+        result.finalText =
+          result.status === 'budget_exhausted'
+            ? `Stopped: the time budget of ${lr?.maxMinutes ?? 0} minutes is used up. Progress is in .agent/progress.md; press Resume to keep going.`
+            : `Stopped after reaching the maximum of ${maxSteps} steps. Press Resume to keep going.`;
+        const m = messagesDb.add({ threadId: o.thread.id, role: 'assistant', content: result.finalText, runId: o.runId, meta: { ok: true, synthetic: true } });
+        emit({ type: 'assistant_message', message: m });
+      }
     }
   } catch (e) {
     if (signal.aborted || (e as Error).name === 'AbortError') {
@@ -344,15 +384,6 @@ async function longRunGate(
   lr: LongRunOptions,
   st: { planNudges: number; verifyAttempts: number },
 ): Promise<{ action: 'continue' | 'finish' | 'fail'; planNudges: number; verifyAttempts: number; error?: string }> {
-  const unfinished = threads.getTodos(o.thread.id).filter((t) => t.status === 'pending' || t.status === 'in_progress');
-  if (unfinished.length && st.planNudges < 3) {
-    o.emit({ type: 'notice', level: 'info', text: `Long-run: ${unfinished.length} plan item(s) unfinished; continuing.` });
-    addSynthetic(
-      o,
-      `[harness] Long-run mode: your plan still has ${unfinished.length} unfinished item(s):\n${unfinished.map((t) => `- [${t.status}] ${t.content}`).join('\n')}\nContinue working on them. If an item is not needed, mark it cancelled via update_plan and say why.`,
-    );
-    return { action: 'continue', planNudges: st.planNudges + 1, verifyAttempts: st.verifyAttempts };
-  }
   if (!lr.doneCommand) return { action: 'finish', ...st };
 
   const attempt = st.verifyAttempts + 1;
@@ -517,6 +548,16 @@ export function startRun(threadId: string, userMessage: string, opts: StartRunOp
     handle.result = r;
     handle.emit({ type: 'run_finished', status: r.status, error: r.error });
     finishRun(handle);
+    if (
+      shouldAutoContinue({
+        status: r.status,
+        source: opts.source ?? 'ui',
+        autoContinue: settings.longRun.autoContinue !== false,
+        continueCount: runOptions.autoContinueCount ?? 0,
+      })
+    ) {
+      resumeThread(thread.id, 'auto-continue');
+    }
   })();
 
   if (isFirst && thread.title === 'New thread') {
@@ -529,10 +570,29 @@ export function startRun(threadId: string, userMessage: string, opts: StartRunOp
 export function resumeThread(threadId: string, source = 'resume'): RunHandle {
   const last = runsDb.lastForThread(threadId);
   const options = last?.options ?? {};
+  const settings = getSettings();
+  const userResume = source !== 'auto-continue';
+  const count = userResume ? 0 : (options.autoContinueCount ?? 0) + 1;
+  const wantLongRun = !!(options.longRun?.enabled || settings.longRunEnabled);
+  const longRun = wantLongRun ? { ...(options.longRun ?? {}), enabled: true } : options.longRun;
   const why = last ? `The previous run ended with status "${last.status}"${last.error ? ` (${last.error})` : ''}.` : '';
-  const files = options.longRun?.enabled ? ' Re-read .agent/plan.md and .agent/progress.md,' : '';
-  const msg = `[harness] Resume. ${why}${files} check the current state of the files (and any test/build output), then continue the task where you left off. Do not redo work that is already complete.`;
-  return startRun(threadId, msg, { source, options: { ...options, resumeOf: last?.id }, userMeta: { synthetic: true, resume: true } });
+  const open = threads.getTodos(threadId).filter((t) => t.status === 'pending' || t.status === 'in_progress');
+  const plan = open.length
+    ? `\nFollow the plan strictly. Unfinished items:\n${open.map((t) => `- [${t.status}] ${t.content}`).join('\n')}\nDo not redo completed items. Do not stop until every item is completed or cancelled with a reason.`
+    : threads.getTodos(threadId).length
+      ? ' The plan is fully checked off; verify the work (run tests/build) and only then finish.'
+      : ' Re-read the files and continue the task where you left off. Do not redo work that is already complete.';
+  const files = wantLongRun ? ' Re-read .agent/plan.md and .agent/progress.md.' : '';
+  const head =
+    source === 'auto-continue'
+      ? `Checkpoint ${count}: the step/time budget was reached, so Hearth saved progress and is continuing automatically.`
+      : 'Resume.';
+  const msg = `[harness] ${head} ${why}${files}${plan}`;
+  return startRun(threadId, msg, {
+    source,
+    options: { ...options, resumeOf: last?.id, autoContinueCount: count, longRun },
+    userMeta: { synthetic: true, resume: true, autoContinue: source === 'auto-continue' },
+  });
 }
 
 export function waitForRun(h: RunHandle): Promise<LoopResult> {

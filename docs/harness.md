@@ -197,7 +197,7 @@ Enable, disable and preview skills in Settings → Skills.
 Long-run mode is for work that takes many steps: building an app from a spec, a large refactor, getting a test suite green. Turn it on with the **Long-run** button in the composer. You can set:
 
 - a **time budget** (default 240 minutes);
-- a **step budget** (default 400);
+- a **step checkpoint** (default 2000 in long-run, 200 otherwise) — reaching it saves progress and **continues automatically**; you should not need to press Resume;
 - a **definition-of-done command**, for example `npm test` or `python -m pytest`;
 - **verify attempts** (default 6).
 
@@ -227,6 +227,7 @@ All conversation state is saved to SQLite as it happens. If the Hearth server st
    > The previous run ended with status "interrupted". Re-read .agent/plan.md and .agent/progress.md, check the current state of the files, then continue the task where you left off. Do not redo work that is already complete.
 
    It keeps the original options (budget, done command, model profile).
-3. Any other stopped run (interrupted, out of steps, out of time, error) shows a banner with a **Resume** button above the composer that does the same thing.
+3. Hitting a **step or time checkpoint** continues automatically (up to 50 chained continues). Progress is written to `.agent/progress.md` and the next run is told the remaining plan items. You should not need to press Resume for that.
+4. Any other stopped run (interrupted, error, or auto-continue turned off / exhausted) shows a banner with a **Resume** button above the composer that does the same thing.
 
 **Tested:** a 10-item long-run task (a Python expression calculator) was killed mid-run by stopping the server. On restart Hearth logged "Resumed interrupted long-run task". The agent re-read its plan, skipped the finished parts, completed the remaining items, and passed its definition-of-done check with 133 tests.

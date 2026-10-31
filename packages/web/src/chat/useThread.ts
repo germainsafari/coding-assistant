@@ -202,13 +202,12 @@ export function useThread(threadId: string | null) {
           void reload();
           if (projectId) void loadThreads(projectId);
           bumpFs();
-          if (why === 'error') {
-            // connection dropped while the run may still be going: re-attach if so
-            setTimeout(async () => {
-              const d = await api.thread(threadId!).catch(() => null);
-              if (d?.thread.activeRunId && tidRef.current === threadId) attach(d.thread.activeRunId);
-            }, 2000);
-          }
+          // Auto-continue starts a new run in the same thread; pick it up without a Resume click.
+          const retry = why === 'error' ? 2000 : 350;
+          setTimeout(async () => {
+            const d = await api.thread(threadId!).catch(() => null);
+            if (d?.thread.activeRunId && tidRef.current === threadId) attach(d.thread.activeRunId);
+          }, retry);
         },
       );
     },

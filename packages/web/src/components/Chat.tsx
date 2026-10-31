@@ -9,6 +9,7 @@ import { ModelOfflineBanner, NewThreadHero, ServerError, Welcome } from './Welco
 import { Badge, Button, IconButton, MOD, Skeleton, Spinner } from './ui';
 
 export function Chat() {
+  const settings = useStore((s) => s.settings);
   const projectId = useStore((s) => s.projectId);
   const threadId = useStore((s) => s.threadId);
   const projects = useStore((s) => s.projects);
@@ -25,7 +26,16 @@ export function Chat() {
   if (projectsError && !projects.length) return <ServerError error={projectsError} />;
   if (!project) return <Welcome />;
 
-  const resumable = !running && state.lastRun && ['interrupted', 'max_steps', 'budget_exhausted', 'error'].includes(state.lastRun.status) && threadId;
+  const autoContinue = settings?.longRun.autoContinue !== false;
+  const continueCount = state.lastRun?.options?.autoContinueCount ?? 0;
+  const waitingForAutoContinue =
+    autoContinue && continueCount < 50 && (state.lastRun?.status === 'max_steps' || state.lastRun?.status === 'budget_exhausted');
+  const resumable =
+    !running &&
+    !!state.lastRun &&
+    !!threadId &&
+    ['interrupted', 'max_steps', 'budget_exhausted', 'error'].includes(state.lastRun.status) &&
+    !waitingForAutoContinue;
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-canvas" data-chat>
@@ -116,7 +126,12 @@ function AttentionBanner({ state }: { state: ThreadState }) {
 
 function ResumeBanner({ status, error, threadId, onStarted }: { status: string; error?: string | null; threadId: string; onStarted: (runId: string) => void }) {
   const notify = useStore((s) => s.notify);
-  const label: Record<string, string> = { interrupted: 'was interrupted (the server stopped)', max_steps: 'hit the step limit', budget_exhausted: 'used up its time budget', error: 'ended with an error' };
+  const label: Record<string, string> = {
+    interrupted: 'was interrupted (the server stopped)',
+    max_steps: 'reached a step checkpoint',
+    budget_exhausted: 'used up its time budget',
+    error: 'ended with an error',
+  };
   return (
     <div className="mx-auto mb-2 flex w-full max-w-[46rem] items-center gap-2.5 rounded-xl border border-warn/30 bg-warn/[0.07] px-3.5 py-2 text-xs text-fg-muted">
       <TriangleAlert className="h-4 w-4 shrink-0 text-warn-ink" />

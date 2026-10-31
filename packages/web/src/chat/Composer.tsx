@@ -53,11 +53,15 @@ export function Composer({ projectId, projectName, running, live, onStarted, rel
   const notify = useStore((s) => s.notify);
   const caps = useStore((s) => s.caps);
   const [text, setText] = useState('');
-  const [longRun, setLongRun] = useState(false);
+  const [longRun, setLongRun] = useState(() => settings?.longRunEnabled !== false);
   const [doneCommand, setDoneCommand] = useState('');
   const [maxMinutes, setMaxMinutes] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
   const ta = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (settings) setLongRun(settings.longRunEnabled !== false);
+  }, [settings?.longRunEnabled]);
 
   useEffect(() => {
     const onPrefill = (e: Event) => {
@@ -189,10 +193,14 @@ export function Composer({ projectId, projectName, running, live, onStarted, rel
             </PillSelect>
             <button
               type="button"
-              onClick={() => setLongRun(!longRun)}
+              onClick={() => {
+                const next = !longRun;
+                setLongRun(next);
+                void saveSettings({ longRunEnabled: next });
+              }}
               aria-pressed={longRun}
               aria-label="Long-run"
-              title="Long-run mode: works autonomously for hours with a plan file, progress log, checkpoints and a definition-of-done check"
+              title="Long-run mode: works autonomously for hours. Follows the plan strictly, writes checkpoints, and continues automatically when a step budget is reached."
               className={cx('inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors', longRun ? 'bg-accent/12 text-accent-ink' : 'text-fg-muted hover:bg-raised hover:text-fg')}
             >
               <InfinityIcon className="h-3.5 w-3.5" /> <span className="hidden @[28rem]:inline">Long-run</span>

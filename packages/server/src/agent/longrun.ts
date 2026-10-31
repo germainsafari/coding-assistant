@@ -5,7 +5,7 @@
 //                       verification results and the agent's own notes
 import fs from 'node:fs';
 import path from 'node:path';
-import type { LongRunOptions, Settings, TodoItem } from '@hearth/shared';
+import type { LongRunOptions, RunStatus, Settings, TodoItem } from '@hearth/shared';
 import { truncateMiddle } from '../util.ts';
 
 export const AGENT_DIR = '.agent';
@@ -47,13 +47,23 @@ export function resolveLongRun(o: Partial<LongRunOptions> | undefined, s: Settin
   };
 }
 
+/** Cap on chained auto-continues of one task (each continue starts a fresh step budget). */
+export const MAX_AUTO_CONTINUES = 50;
+
+export function shouldAutoContinue(p: { status: RunStatus; source: string; autoContinue: boolean; continueCount: number }): boolean {
+  if (!p.autoContinue) return false;
+  if (p.source === 'eval' || p.source === 'subagent') return false;
+  if (p.continueCount >= MAX_AUTO_CONTINUES) return false;
+  return p.status === 'max_steps' || p.status === 'budget_exhausted';
+}
+
 /** System-prompt section for long-run mode, including the current plan/progress files. */
 export function longRunPromptSection(root: string, lr: LongRunOptions): string {
   const plan = readIfExists(planPath(root), 6000);
   const progress = readIfExists(progressPath(root), 10000);
   return `# LONG-RUN MODE (autonomous)
-You are running unattended for up to ${lr.maxMinutes} minutes / ${lr.maxSteps} steps. The user is not watching; do not stop to ask for confirmation, and do not end your turn until the whole task is finished and verified.
-- Start by writing a complete plan with update_plan (it is saved to ${AGENT_DIR}/plan.md). Keep exactly one item in_progress and update the plan as you go.
+You are running unattended for up to ${lr.maxMinutes} minutes / ${lr.maxSteps} steps per checkpoint. Hitting the step budget is a checkpoint, not the end of the task: the harness will save progress and continue automatically. The user is not watching; do not stop to ask for confirmation, and do not end your turn until the whole task is finished and verified.
+- Start by writing a complete plan with update_plan (it is saved to ${AGENT_DIR}/plan.md). Follow that plan strictly: keep exactly one item in_progress, do not skip ahead, and do not invent extra work that is not on the plan. Update the plan as you go.
 - Work in small, verifiable increments: implement, run, test, fix. Commit working milestones with git_commit when the project uses git.
 - After each milestone, append a short note to ${AGENT_DIR}/progress.md (what was done, what's next, gotchas) with edit_file/write_file. Your older messages WILL be deleted when the context fills up; ${AGENT_DIR}/plan.md, ${AGENT_DIR}/progress.md and the code are your durable memory.
 - If you are stuck (same error repeatedly), stop, re-read the relevant code and errors, write down hypotheses, and try a genuinely different approach.

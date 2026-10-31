@@ -61,8 +61,9 @@ export function defaultSettings(): Settings {
     activeProfileId: 'default',
     approvalMode: 'auto-edit',
     compactAt: 0.65,
-    longRun: { doneCommand: '', maxMinutes: 240, maxSteps: 400, maxVerifyAttempts: 6, autoResume: true },
-    maxSteps: 40,
+    longRun: { doneCommand: '', maxMinutes: 240, maxSteps: 2000, maxVerifyAttempts: 6, autoResume: true, autoContinue: true },
+    longRunEnabled: true,
+    maxSteps: 200,
     shellTimeoutSec: 120,
     projectsDir: process.env.HEARTH_PROJECTS_DIR || path.join(os.homedir(), 'HearthProjects'),
     languageToolUrl: process.env.HEARTH_LANGUAGETOOL_URL || 'http://localhost:8081',
@@ -108,6 +109,11 @@ export function getSettings(): Settings {
   }
   delete fromFile.model;
   cached = resolve(deepMerge(defaultSettings(), fromFile));
+  // The original 40-step default stopped real coding tasks; treat leftover copies as the new default.
+  if (fromFile.maxSteps === 40 || fromFile.maxSteps === undefined) cached.maxSteps = Math.max(cached.maxSteps, 200);
+  if (fromFile.longRun?.maxSteps === 400 || fromFile.longRun?.maxSteps === undefined) cached.longRun.maxSteps = Math.max(cached.longRun.maxSteps, 2000);
+  if (fromFile.longRun?.autoContinue === undefined) cached.longRun.autoContinue = true;
+  if (fromFile.longRunEnabled === undefined) cached.longRunEnabled = true;
   // env always wins for the GitHub token if settings is empty
   if (!cached.githubToken && process.env.GITHUB_TOKEN) cached.githubToken = process.env.GITHUB_TOKEN;
   return cached;
