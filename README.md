@@ -101,6 +101,7 @@ More screenshots are in [docs/images](docs/images). Keyboard shortcuts: `Ctrl+K`
 ## Documentation
 
 - [Setup guide](docs/setup-guide.md): install everything step by step (Windows and Linux), the model server, LanguageTool, troubleshooting
+- [Deploy](docs/deploy.md): Cloudflare Tunnel on this GPU PC (`private-assistant.admindagency.com`). Not Vercel/Render.
 - [Architecture](docs/architecture.md): how the pieces fit together, with diagrams
 - [Code guide](docs/code-guide.md): a tour of the source tree for contributors
 - [Harness](docs/harness.md): the agent loop, tools, safety, memory, skills, long-run mode

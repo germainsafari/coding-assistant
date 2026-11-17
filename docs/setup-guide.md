@@ -229,7 +229,7 @@ Startup options come from environment variables or a `.env` file in the Hearth f
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `HEARTH_PORT` | `4545` | Web server port (`npm run dev` uses 4545 for the UI and 4546 for the API) |
+| `HEARTH_PORT` | `4545` | Web server port (`npm run dev` uses 4545 for the UI and 4546 for the API). Use `8070` with the Cloudflare Tunnel — see [deploy.md](deploy.md) |
 | `HEARTH_HOST` | `localhost` | IPv4 and IPv6 loopback. Hearth has no login, so don't bind it to a public address |
 | `HEARTH_DATA_DIR` | `./data` | Database, settings and user skills |
 | `HEARTH_PROJECTS_DIR` | `~/HearthProjects` | Where "New project" creates folders |
